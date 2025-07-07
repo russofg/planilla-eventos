@@ -1,0 +1,148 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Función para verificar si el usuario está autenticado
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    // Función para verificar si el usuario es el propietario del documento
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Función para verificar si el usuario es administrador
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+    
+    // Función para validar datos de eventos
+    function isValidEvent() {
+      let requiredFields = ['userId', 'evento', 'fecha', 'horaEntrada', 'horaSalida'];
+      let incomingData = request.resource.data;
+      
+      return incomingData.keys().hasAll(requiredFields) &&
+             incomingData.userId is string &&
+             incomingData.evento is string &&
+             incomingData.fecha is string &&
+             incomingData.horaEntrada is string &&
+             incomingData.horaSalida is string &&
+             (incomingData.operacion == true || incomingData.operacion == false);
+    }
+    
+    // Función para validar datos de gastos
+    function isValidExpense() {
+      let requiredFields = ['userId', 'descripcion', 'fecha', 'monto'];
+      let incomingData = request.resource.data;
+      
+      return incomingData.keys().hasAll(requiredFields) &&
+             incomingData.userId is string &&
+             incomingData.descripcion is string &&
+             incomingData.fecha is string &&
+             incomingData.monto is number &&
+             incomingData.monto > 0;
+    }
+    
+    // ⚙️ Permite que un usuario solo agregue su UID al array exportedByUsers
+    function canOnlyAddMyExport() {
+      let old = resource.data.exportedByUsers;
+      return isAuth()
+        // Solo toca el campo exportedByUsers
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exportedByUsers'])
+        // Y el nuevo array == (old || []) + mi UID
+        && request.resource.data.exportedByUsers
+             == (old != null ? old : []).union([request.auth.uid]);
+    }
+    
+    // Conexión de prueba
+    match /_connectionTest/{document=**} {
+      allow read, write: if isAuth();
+    }
+    
+    // Colección de usuarios
+    match /users/{userId} {
+      allow read:    if isAuth() && (isOwner(userId) || isAdmin());
+      allow create:  if isAuth() && isAdmin();
+      allow update:  if isAuth() && (isOwner(userId) || isAdmin());
+      allow delete:  if isAuth() && isAdmin();
+      
+      match /private/{document=**} {
+        allow read, write: if isAuth() && (isOwner(userId) || isAdmin());
+      }
+    }
+    
+    // Colección de eventos personales
+    match /eventos/{eventoId} {
+      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid && isValidEvent();
+      // Permitir actualización si el usuario es dueño del evento o si solo está modificando exportedByUsers
+      allow update: if isAuth() && resource.data.userId == request.auth.uid && (
+        // Permitir cualquier actualización si el usuario es dueño del evento
+        resource.data.userId == request.auth.uid || 
+        // O permitir solo actualizar exportedByUsers
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exportedByUsers'])
+      );
+      allow delete: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Colección de gastos
+    match /gastos/{gastoId} {
+      allow read:   if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid && isValidExpense();
+      allow update: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Colección de próximos eventos
+    match /proximosEventos/{eventoId} {
+      allow list:   if isAuth();
+      allow read:   if isAuth();
+      allow create, delete: if isAuth() && isAdmin();
+      // Admin puede todo; cualquier usuario solo puede agregar su UID
+      // Todos los usuarios autenticados pueden añadir su UID al array exportedByUsers
+  allow update: if isAuth()
+              && request.resource.data.diff(resource.data)
+                .affectedKeys().hasOnly(['exportedByUsers']);
+    }
+    
+    // Registros de exportación por usuario
+    match /userExports/{userExportId} {
+      // Verifica formato "userId_eventoId"
+      function isValidExportId() {
+        let parts = userExportId.split('_');
+        return parts.size() == 2 && parts[0] == request.auth.uid;
+      }
+      
+      allow read:   if isAuth() && (userExportId.startsWith(request.auth.uid + '_') || isAdmin());
+      allow create: if isAuth() && isValidExportId() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && isValidExportId() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && isAdmin();
+    }
+    
+    // Preferencias de usuario
+    match /userPrefs/{userId} {
+      allow read:  if isAuth() && (isOwner(userId) || isAdmin());
+      allow write: if isAuth() && isOwner(userId);
+    }
+    
+    // Configuración global
+    match /config/{configId} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && isAdmin();
+    }
+    
+    // Tokens de usuario
+    match /userTokens/{userId} {
+      allow read:  if isAuth() && (isOwner(userId) || isAdmin());
+      allow write: if isAuth() && isOwner(userId);
+    }
+    
+    // Notificaciones de administrador
+    match /adminNotifications/{notificationId} {
+      allow create: if isAuth() && isAdmin();
+      allow read:   if isAuth() && (resource.data.targetUserId == request.auth.uid || isAdmin());
+      allow update: if isAuth() && (resource.data.targetUserId == request.auth.uid || isAdmin());
+      allow delete: if isAuth() && isAdmin();
+    }
+  }
+}

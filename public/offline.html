@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sin conexión - Planilla de Eventos</title>
+    <link rel="stylesheet" href="output.css" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#007bff" />
+    <style>
+      :root {
+        --primary-color: #007bff;
+        --secondary-color: #6c757d;
+        --success-color: #28a745;
+        --danger-color: #dc3545;
+        --warning-color: #ffc107;
+        --info-color: #17a2b8;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --primary-color: #0d6efd;
+          --bg-color: #212529;
+          --text-color: #f8f9fa;
+          --card-bg: #2a2e33;
+          --border-color: #495057;
+        }
+        body {
+          background-color: var(--bg-color) !important;
+          color: var(--text-color) !important;
+        }
+        .offline-container {
+          background-color: var(--card-bg) !important;
+          border: 1px solid var(--border-color);
+        }
+        h1,
+        h2 {
+          color: var(--text-color) !important;
+        }
+        p {
+          color: #adb5bd !important;
+        }
+        .footer {
+          color: #6c757d !important;
+        }
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        background-color: #f5f5f5;
+        color: #333;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+        text-align: center;
+      }
+      .offline-container {
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+        max-width: 550px;
+        width: 100%;
+        margin-bottom: 20px;
+      }
+      .offline-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        color: var(--warning-color);
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.6;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+      .connected-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        color: var(--success-color);
+        animation: bounce 1s;
+      }
+      @keyframes bounce {
+        0%,
+        20%,
+        50%,
+        80%,
+        100% {
+          transform: translateY(0);
+        }
+        40% {
+          transform: translateY(-30px);
+        }
+        60% {
+          transform: translateY(-15px);
+        }
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 15px;
+        font-size: 2rem;
+      }
+      h2 {
+        color: #555;
+        margin: 20px 0 10px;
+        font-size: 1.5rem;
+      }
+      p {
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 25px;
+      }
+      .button-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+      }
+      .btn {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 140px;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+      }
+      .btn:active {
+        transform: translateY(0);
+      }
+      .btn-secondary {
+        background-color: var(--secondary-color);
+      }
+      .btn-success {
+        background-color: var(--success-color);
+      }
+      .status-box {
+        background-color: rgba(0, 0, 0, 0.05);
+        border-radius: 8px;
+        padding: 15px;
+        margin: 20px 0;
+        border-left: 4px solid var(--warning-color);
+      }
+      .status-box.online {
+        border-left-color: var(--success-color);
+      }
+      .status-box.syncing {
+        border-left-color: var(--info-color);
+      }
+      .footer {
+        margin-top: 20px;
+        padding-top: 20px;
+        font-size: 14px;
+        color: #888;
+      }
+      .cached-data {
+        background-color: rgba(0, 0, 0, 0.03);
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: left;
+      }
+      .cached-data ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+      .cached-data li {
+        margin-bottom: 5px;
+      }
+      .connection-status {
+        font-size: 14px;
+        margin-top: 5px;
+      }
+      .loader {
+        border: 3px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 3px solid var(--primary-color);
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .hidden {
+        display: none !important;
+      }
+
+      .tips-container {
+        margin-top: 20px;
+        text-align: left;
+      }
+
+      .tips-container h3 {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+
+      .tips-container ol {
+        padding-left: 20px;
+      }
+
+      .tips-container li {
+        margin-bottom: 8px;
+      }
+
+      .sync-status {
+        font-size: 0.9rem;
+        margin-top: 10px;
+        color: #666;
+      }
+
+      @media (max-width: 600px) {
+        .offline-container {
+          padding: 20px;
+        }
+        h1 {
+          font-size: 1.5rem;
+        }
+        .button-container {
+          flex-direction: column;
+        }
+        .btn {
+          width: 100%;
+          margin-bottom: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="offline-container">
+      <div id="statusIcon" class="offline-icon">📶</div>
+      <h1 id="statusTitle">Sin conexión a internet</h1>
+
+      <div id="offlineContent">
+        <p>
+          No te preocupes, la aplicación está en modo offline. Puedes continuar
+          utilizando la mayoría de las funciones.
+        </p>
+
+        <div class="status-box">
+          <strong>Estado actual:</strong> Sin conexión
+          <div class="connection-status">
+            Los datos que agregues se guardarán localmente y se sincronizarán
+            automáticamente cuando vuelva la conexión.
+          </div>
+        </div>
+
+        <h2>¿Qué puedes hacer mientras estás offline?</h2>
+        <ul>
+          <li>Ver eventos y gastos almacenados previamente</li>
+          <li>Crear nuevos eventos o registrar gastos</li>
+          <li>Editar información existente</li>
+          <li>Realizar cálculos y generar informes básicos</li>
+        </ul>
+
+        <div class="tips-container">
+          <h3>Consejos útiles:</h3>
+          <ol>
+            <li>
+              Cualquier cambio que realices se guardará localmente hasta que
+              vuelva la conexión
+            </li>
+            <li>
+              La sincronización ocurrirá automáticamente cuando se restablezca
+              la conexión
+            </li>
+            <li>
+              Para forzar un intento de reconexión, usa el botón "Intentar
+              reconectar"
+            </li>
+            <li>
+              Si la aplicación no funciona correctamente, intenta recargar la
+              página cuando vuelva la conexión
+            </li>
+          </ol>
+        </div>
+
+        <div class="sync-status" id="pendingItemsCount"></div>
+      </div>
+
+      <div id="onlineContent" class="hidden">
+        <p>
+          ¡Tu conexión a internet ha sido restaurada! Ahora puedes usar todas
+          las funciones de la aplicación.
+        </p>
+
+        <div class="status-box online">
+          <strong>Estado actual:</strong> Conectado
+          <div class="connection-status" id="syncStatus">
+            Sincronizando datos pendientes...
+          </div>
+        </div>
+
+        <div id="syncComplete" class="hidden">
+          <p>Todos tus datos han sido sincronizados correctamente.</p>
+        </div>
+      </div>
+
+      <div class="button-container">
+        <button class="btn" id="reconnectBtn" onclick="tryReconnect()">
+          <span id="reconnectLoader" class="loader hidden"></span>
+          Intentar reconectar
+        </button>
+        <button class="btn btn-secondary" onclick="goBack()">
+          Volver a la app
+        </button>
+        <button
+          class="btn btn-success hidden"
+          id="continueBtn"
+          onclick="continueToApp()"
+        >
+          Continuar
+        </button>
+      </div>
+    </div>
+
+    <div class="footer">
+      Planilla de Eventos © 2025 - Modo <span id="connectionMode">Offline</span>
+      <div id="lastCheck"></div>
+    </div>
+
+    <script>
+      // Elementos DOM
+      const statusIcon = document.getElementById("statusIcon");
+      const statusTitle = document.getElementById("statusTitle");
+      const offlineContent = document.getElementById("offlineContent");
+      const onlineContent = document.getElementById("onlineContent");
+      const reconnectBtn = document.getElementById("reconnectBtn");
+      const reconnectLoader = document.getElementById("reconnectLoader");
+      const continueBtn = document.getElementById("continueBtn");
+      const connectionMode = document.getElementById("connectionMode");
+      const syncStatus = document.getElementById("syncStatus");
+      const syncComplete = document.getElementById("syncComplete");
+      const lastCheck = document.getElementById("lastCheck");
+      const pendingItemsCount = document.getElementById("pendingItemsCount");
+
+      // Variables de estado
+      let isOnline = navigator.onLine;
+      let checkingConnection = false;
+      let syncInProgress = false;
+
+      // Inicialización
+      document.addEventListener("DOMContentLoaded", function () {
+        updateConnectionStatus();
+        checkPendingItems();
+
+        // Actualizar último chequeo
+        updateLastCheck();
+
+        // Establecer intervalo de verificación
+        setInterval(updateConnectionStatus, 5000);
+        setInterval(updateLastCheck, 30000);
+      });
+
+      // Función para intentar reconectarse
+      function tryReconnect() {
+        if (checkingConnection) return;
+
+        checkingConnection = true;
+        reconnectLoader.classList.remove("hidden");
+        reconnectBtn.disabled = true;
+
+        // Simulamos un chequeo de conexión (esto normalmente sería un fetch real)
+        setTimeout(() => {
+          updateConnectionStatus(true);
+          checkingConnection = false;
+          reconnectLoader.classList.add("hidden");
+          reconnectBtn.disabled = false;
+        }, 2000);
+      }
+
+      // Actualizar estado de conexión
+      function updateConnectionStatus(forceCheck = false) {
+        // Comprobar estado de conexión
+        const wasOffline = !isOnline;
+        isOnline = navigator.onLine;
+
+        if (isOnline) {
+          statusIcon.textContent = "✅";
+          statusIcon.classList.remove("offline-icon");
+          statusIcon.classList.add("connected-icon");
+          statusTitle.textContent = "¡Conexión restablecida!";
+          offlineContent.classList.add("hidden");
+          onlineContent.classList.remove("hidden");
+          connectionMode.textContent = "Online";
+          continueBtn.classList.remove("hidden");
+
+          // Si estamos pasando de offline a online, iniciar sincronización
+          if (wasOffline || forceCheck) {
+            triggerSync();
+          }
+        } else {
+          statusIcon.textContent = "📶";
+          statusIcon.classList.add("offline-icon");
+          statusIcon.classList.remove("connected-icon");
+          statusTitle.textContent = "Sin conexión a internet";
+          offlineContent.classList.remove("hidden");
+          onlineContent.classList.add("hidden");
+          connectionMode.textContent = "Offline";
+          continueBtn.classList.add("hidden");
+        }
+      }
+
+      // Simular sincronización
+      function triggerSync() {
+        if (syncInProgress) return;
+
+        syncInProgress = true;
+        syncStatus.innerHTML =
+          '<span class="loader"></span> Sincronizando datos pendientes...';
+        syncComplete.classList.add("hidden");
+
+        // Simular proceso de sincronización
+        setTimeout(() => {
+          syncStatus.innerHTML = "Sincronización completada";
+          syncComplete.classList.remove("hidden");
+          syncInProgress = false;
+          checkPendingItems();
+        }, 3000);
+
+        // Si hay Service Worker y soporta Background Sync
+        if ("serviceWorker" in navigator && "SyncManager" in window) {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.sync
+              .register("sync-data")
+              .then(() => {})
+              .catch((err) => {});
+          });
+        }
+      }
+
+      // Volver atrás o a la aplicación principal
+      function goBack() {
+        // Comprobar si venimos de otra página de la aplicación
+        if (
+          document.referrer &&
+          document.referrer.includes(window.location.host) &&
+          !document.referrer.includes("login.html")
+        ) {
+          window.history.back();
+        } else {
+          // Si no hay historial o venimos del login, ir a la página principal
+          window.location.href = "/index.html";
+        }
+      }
+
+      // Continuar a la aplicación después de recuperar conexión
+      function continueToApp() {
+        window.location.href = "/index.html?reconnected=true";
+      }
+
+      // Actualizar timestamp del último chequeo
+      function updateLastCheck() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString();
+        lastCheck.textContent = `Última actualización: ${timeString}`;
+      }
+
+      // Comprobar datos pendientes (simulado)
+      function checkPendingItems() {
+        // En una implementación real, esto obtendría los datos desde IndexedDB
+        // Para la demo, simulamos el chequeo
+        const hasPendingItems = Math.random() > 0.5;
+
+        if (hasPendingItems) {
+          const count = Math.floor(Math.random() * 10) + 1;
+          pendingItemsCount.textContent = `Tienes ${count} elementos pendientes de sincronización`;
+        } else {
+          pendingItemsCount.textContent =
+            "No hay elementos pendientes de sincronización";
+        }
+      }
+
+      // Comprobar si tenemos acceso a IndexedDB (versión simplificada)
+      function checkIndexedDBAccess() {
+        try {
+          const request = indexedDB.open("test-db");
+          request.onerror = () => {
+            console.error(
+              "Sin acceso a IndexedDB - el almacenamiento offline podría no funcionar"
+            );
+          };
+          request.onsuccess = () => {
+            const db = request.result;
+            db.close();
+            indexedDB.deleteDatabase("test-db");
+          };
+        } catch (err) {}
+      }
+
+      // Ejecutar chequeo IndexedDB
+      checkIndexedDBAccess();
+
+      // Escuchar eventos de conexión
+      window.addEventListener("online", updateConnectionStatus);
+      window.addEventListener("offline", updateConnectionStatus);
+
+      // Escuchar mensajes del Service Worker
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.addEventListener("message", (event) => {
+          if (event.data && event.data.type === "SYNC_COMPLETED") {
+            syncStatus.textContent = `Sincronización completada - ${
+              event.data.count || 0
+            } elementos`;
+            syncComplete.classList.remove("hidden");
+            syncInProgress = false;
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

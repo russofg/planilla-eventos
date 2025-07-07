@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendario de Eventos</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/@fullcalendar/core@latest/main.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@latest/main.min.css"
+      rel="stylesheet"
+    />
+    <link href="./output.css" rel="stylesheet" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#3b82f6" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  </head>
+  <body
+    class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300"
+  >
+    <!-- Loading Indicator -->
+    <div
+      id="loading-indicator"
+      class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+      style="display: none"
+    >
+      <div class="text-white text-xl font-semibold">Cargando...</div>
+    </div>
+
+    <div id="app" class="container mx-auto p-4 md:p-6 lg:p-8">
+      <!-- Header -->
+      <header
+        class="flex flex-col md:flex-row justify-between items-center mb-6 pb-4 border-b border-gray-300 dark:border-gray-700"
+      >
+        <div class="flex items-center">
+          <a
+            href="index.html"
+            id="back-button"
+            class="mr-4 bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded inline-flex items-center transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 mr-1"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              />
+            </svg>
+            <span>Volver</span>
+          </a>
+          <h1
+            class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2 md:mb-0"
+          >
+            Calendario de Eventos
+          </h1>
+        </div>
+        <div class="flex items-center space-x-4">
+          <span
+            id="user-email"
+            class="text-sm text-gray-600 dark:text-gray-400"
+          ></span>
+          <button
+            id="theme-toggle"
+            class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            aria-label="Toggle dark mode"
+          >
+            <span id="theme-icon">🌙</span>
+          </button>
+          <button
+            id="logout-button"
+            class="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors text-sm"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <div
+        id="main-content"
+        class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6"
+      >
+        <div id="calendar-container" class="max-w-full">
+          <div id="calendar"></div>
+        </div>
+      </div>
+
+      <!-- Login Prompt (shown if not logged in) -->
+      <div
+        id="calendar-login-prompt"
+        class="text-center mt-20 p-8 bg-white dark:bg-gray-800 rounded-lg shadow max-w-md mx-auto"
+        style="display: none"
+      >
+        <h2 class="text-2xl font-semibold mb-4">Bienvenido</h2>
+        <p class="mb-6 text-gray-600 dark:text-gray-400">
+          Por favor, inicia sesión para ver el calendario.
+        </p>
+        <a
+          href="login.html"
+          class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-6 rounded transition-colors"
+        >
+          Iniciar Sesión
+        </a>
+        <p class="mt-4 text-sm">
+          ¿No tienes cuenta?
+          <a
+            href="register.html"
+            class="text-blue-600 hover:underline dark:text-blue-400"
+            >Regístrate aquí</a
+          >
+        </p>
+      </div>
+    </div>
+
+    <!-- Event Modal -->
+    <div
+      id="event-modal"
+      class="hidden fixed inset-0 z-[9999] bg-gray-800 bg-opacity-75 flex items-center justify-center p-4"
+    >
+      <div
+        class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md mx-auto"
+      >
+        <h2
+          id="modal-title"
+          class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100"
+        >
+          Nuevo Evento
+        </h2>
+        <form id="event-form" class="grid grid-cols-1 gap-4">
+          <div>
+            <label
+              for="modal-evento"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >Nombre Evento</label
+            >
+            <input
+              type="text"
+              id="modal-evento"
+              name="evento"
+              required
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              for="modal-fecha"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >Fecha</label
+            >
+            <input
+              type="date"
+              id="modal-fecha"
+              name="fecha-operacion"
+              required
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              for="modal-hora-entrada"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >Hora Entrada</label
+            >
+            <input
+              type="time"
+              id="modal-hora-entrada"
+              name="hora-entrada"
+              required
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              for="modal-hora-salida"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >Hora Salida</label
+            >
+            <input
+              type="time"
+              id="modal-hora-salida"
+              name="hora-salida"
+              required
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              id="modal-operacion"
+              name="operacion"
+              class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label
+              for="modal-operacion"
+              class="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+              >¿Operación?</label
+            >
+          </div>
+          <div class="flex justify-end space-x-2 pt-4">
+            <button
+              type="button"
+              id="modal-delete"
+              class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-700"
+              style="display: none"
+            >
+              Eliminar
+            </button>
+            <button
+              type="button"
+              id="modal-cancel"
+              class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              id="modal-submit"
+              class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white rounded"
+            >
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal para Edición de Eventos Próximos (solo admin) -->
+    <div
+      id="proximo-evento-modal"
+      class="hidden fixed inset-0 z-[9999] bg-gray-800 bg-opacity-75 flex items-center justify-center p-4"
+    >
+      <div
+        class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md mx-auto"
+      >
+        <h2 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+          Editar Evento Próximo
+        </h2>
+        <form id="proximo-evento-form" class="grid grid-cols-1 gap-4">
+          <input type="hidden" id="proximo-evento-id" name="id" />
+          <div>
+            <label
+              for="proximo-evento-nombre"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >Nombre Evento</label
+            >
+            <input
+              type="text"
+              id="proximo-evento-nombre"
+              name="nombre"
+              required
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              for="proximo-evento-fecha-inicio"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >Fecha Inicio</label
+            >
+            <input
+              type="date"
+              id="proximo-evento-fecha-inicio"
+              name="fechaInicio"
+              required
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              for="proximo-evento-fecha-fin"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >Fecha Fin</label
+            >
+            <input
+              type="date"
+              id="proximo-evento-fecha-fin"
+              name="fechaFin"
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              for="proximo-evento-descripcion"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >Descripción</label
+            >
+            <textarea
+              id="proximo-evento-descripcion"
+              name="descripcion"
+              rows="3"
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+            ></textarea>
+          </div>
+          <div class="flex justify-end space-x-2 pt-4">
+            <button
+              type="button"
+              id="proximo-evento-delete"
+              class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-700"
+            >
+              Eliminar
+            </button>
+            <button
+              type="button"
+              id="proximo-evento-cancel"
+              class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              id="proximo-evento-submit"
+              class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white rounded"
+            >
+              Guardar Cambios
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script type="module" src="./themeService.js"></script>
+    <script type="module" src="./authService.js"></script>
+    <script type="module" src="./calendar.js"></script>
+  </body>
+</html>

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panel de Administración</title>
+    <link href="./output.css" rel="stylesheet" />
+    <!-- Toastify JS para notificaciones modernas -->
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    />
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/toastify-js"
+    ></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-auth-compat.js"></script>
+    <!-- Carga primero la configuración y luego el script de admin -->
+    <script type="module" src="./firebase.config.js"></script>
+    <script type="module" src="./notifications.js"></script>
+    <script type="module" src="./admin.js"></script>
+  </head>
+  <body
+    class="bg-gray-100 dark:bg-gray-900 font-sans transition-colors duration-300 h-screen"
+  >
+    <div
+      id="loading-indicator-admin"
+      class="fixed inset-0 bg-gray-700 dark:bg-gray-900 bg-opacity-75 flex items-center justify-center z-50"
+    >
+      <div class="flex flex-col items-center">
+        <div
+          class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"
+        ></div>
+        <p class="text-white text-xl mt-4">Cargando...</p>
+      </div>
+    </div>
+
+    <div
+      id="login-prompt-admin"
+      class="hidden text-center p-10 dark:text-white"
+    >
+      <h1 class="text-2xl font-bold mb-4">Acceso de Administrador</h1>
+      <p>Debes iniciar sesión como administrador para acceder a esta página.</p>
+      <a
+        href="login.html"
+        class="text-blue-600 hover:underline dark:text-blue-400"
+        >Ir a Login</a
+      >
+      <!-- O mostrar un mensaje de error si la verificación de rol falló -->
+    </div>
+
+    <div id="admin-content" class="container mx-auto p-4 hidden">
+      <!-- Header -->
+      <header
+        class="flex flex-col md:flex-row justify-between items-center mb-6 pb-4 border-b border-gray-300 dark:border-gray-700"
+      >
+        <h1
+          class="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400 mb-2 md:mb-0"
+        >
+          Panel de Administración
+        </h1>
+        <div class="flex items-center space-x-4">
+          <span
+            id="user-email-admin"
+            class="text-sm text-gray-600 dark:text-gray-400"
+          ></span>
+          <a
+            href="index.html"
+            id="go-to-index-button"
+            class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded transition-colors text-sm"
+          >
+            Página Principal
+          </a>
+          <button
+            id="theme-toggle"
+            class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            aria-label="Toggle dark mode"
+          >
+            <span id="theme-icon">🌙</span>
+            <!-- Icon changes via JS -->
+          </button>
+          <button
+            id="logout-button-admin"
+            class="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors text-sm"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+      </header>
+
+      <!-- Sección de Configuración de Tarifas -->
+      <section
+        class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6 transition-colors duration-300"
+      >
+        <h2 class="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-200">
+          Configuración de Tarifas
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div>
+            <label
+              for="tarifa-hora-extra-input"
+              class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"
+              >Tarifa de Hora Extra ($)</label
+            >
+            <input
+              type="number"
+              id="tarifa-hora-extra-input"
+              placeholder="Ej: $11000"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <div>
+            <label
+              for="tarifa-fin-input"
+              class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"
+              >Tarifa Fin de Semana ($)</label
+            >
+            <input
+              type="number"
+              id="tarifa-fin-input"
+              placeholder="Ej: 12700"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <div>
+            <label
+              for="tarifa-operacion-input"
+              class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"
+              >Tarifa de Operación ($)</label
+            >
+            <input
+              type="number"
+              id="tarifa-operacion-input"
+              placeholder="Ej: 29000"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+
+          <button
+            id="save-tarifas-button"
+            class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded h-10 md:col-span-3 transition duration-300"
+          >
+            Guardar Tarifas
+          </button>
+        </div>
+      </section>
+
+      <!-- Sección de Envío de Notificaciones -->
+      <section
+        class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6 transition-colors duration-300"
+      >
+        <h2 class="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-200">
+          Enviar Notificaciones Push
+        </h2>
+        <form id="notification-form" class="space-y-4">
+          <div>
+            <label
+              for="notification-title"
+              class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"
+            >
+              Título de la notificación
+            </label>
+            <input
+              type="text"
+              id="notification-title"
+              placeholder="Ej: Nuevo evento disponible"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+              required
+            />
+          </div>
+          <div>
+            <label
+              for="notification-body"
+              class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"
+            >
+              Mensaje
+            </label>
+            <textarea
+              id="notification-body"
+              rows="3"
+              placeholder="Escribe el contenido de la notificación..."
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+              required
+            ></textarea>
+          </div>
+          <div class="flex justify-end">
+            <button
+              type="submit"
+              class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition duration-300"
+            >
+              Enviar Notificación
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Sección de Visualización de Datos por Usuario -->
+      <section
+        id="user-data-section"
+        class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md transition-colors duration-300"
+      >
+        <h2 class="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-200">
+          Ver Datos por Usuario
+        </h2>
+        <button
+          id="show-global-totals-btn"
+          class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded mb-4"
+        >
+          Ver Totales Globales
+        </button>
+        <div class="mb-4">
+          <label
+            for="user-select"
+            class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"
+            >Seleccionar Usuario:</label
+          >
+          <select
+            id="user-select"
+            class="w-full md:w-1/2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+          >
+            <option value="">Cargando usuarios...</option>
+            <!-- Opciones se llenarán dinámicamente -->
+          </select>
+        </div>
+
+        <!-- Info del Usuario Seleccionado -->
+        <div
+          id="user-info"
+          class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 dark:text-gray-200 transition-colors duration-300"
+        >
+          <p>Selecciona un usuario para ver sus detalles y registros.</p>
+        </div>
+
+        <!-- Totales para el usuario seleccionado -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-center">
+          <div
+            class="bg-blue-100 dark:bg-blue-900 p-3 rounded shadow transition-colors duration-300"
+          >
+            <h4 class="font-semibold text-blue-800 dark:text-blue-200">
+              Total Pago Eventos
+            </h4>
+            <p class="text-lg font-bold text-blue-800 dark:text-white">
+              $<span id="total-pago-user">0</span>
+            </p>
+          </div>
+          <div
+            class="bg-yellow-100 dark:bg-yellow-900 p-3 rounded shadow transition-colors duration-300"
+          >
+            <h4 class="font-semibold text-yellow-800 dark:text-yellow-200">
+              Total Horas Extra
+            </h4>
+            <p class="text-lg font-bold text-yellow-800 dark:text-white">
+              <span id="total-horas-user">0</span>
+            </p>
+          </div>
+          <div
+            class="bg-red-100 dark:bg-red-900 p-3 rounded shadow transition-colors duration-300"
+          >
+            <h4 class="font-semibold text-red-800 dark:text-red-200">
+              Total Gastos
+            </h4>
+            <p class="text-lg font-bold text-red-800 dark:text-white">
+              $<span id="total-gastos-user">0</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Tabla de Eventos del Usuario Seleccionado -->
+        <div class="mb-6">
+          <h3 class="text-lg font-medium mb-2 text-gray-600 dark:text-gray-300">
+            Eventos Registrados
+          </h3>
+          <div class="overflow-x-auto">
+            <table
+              class="min-w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-colors duration-300"
+            >
+              <thead class="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th
+                    class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Evento
+                  </th>
+                  <th
+                    class="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Día
+                  </th>
+                  <th
+                    class="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Sem
+                  </th>
+                  <th
+                    class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Entrada
+                  </th>
+                  <th
+                    class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Salida
+                  </th>
+                  <th
+                    class="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Op.
+                  </th>
+                  <th
+                    class="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Hs Ex
+                  </th>
+                  <th
+                    class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Pago
+                  </th>
+                </tr>
+              </thead>
+              <tbody
+                id="admin-eventos-body"
+                class="bg-white dark:bg-gray-700 divide-y divide-gray-200 dark:divide-gray-600 text-sm dark:text-gray-200"
+              >
+                <!-- Filas se llenarán dinámicamente -->
+                <tr>
+                  <td
+                    colspan="8"
+                    class="text-center py-4 text-gray-500 dark:text-gray-400"
+                  >
+                    Selecciona un usuario para ver sus eventos.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tabla de Gastos del Usuario Seleccionado -->
+        <div>
+          <h3 class="text-lg font-medium mb-2 text-gray-600 dark:text-gray-300">
+            Gastos Registrados
+          </h3>
+          <div class="overflow-x-auto">
+            <table
+              class="min-w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-colors duration-300"
+            >
+              <thead class="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th
+                    class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Descripción
+                  </th>
+                  <th
+                    class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Monto
+                  </th>
+                </tr>
+              </thead>
+              <tbody
+                id="admin-gastos-body"
+                class="bg-white dark:bg-gray-700 divide-y divide-gray-200 dark:divide-gray-600 text-sm dark:text-gray-200"
+              >
+                <!-- Filas se llenarán dinámicamente -->
+                <tr>
+                  <td
+                    colspan="2"
+                    class="text-center py-4 text-gray-500 dark:text-gray-400"
+                  >
+                    Selecciona un usuario para ver sus gastos.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sección de Totales de Todos los Usuarios -->
+      <section
+        id="global-totals"
+        class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md transition-colors duration-300 hidden mb-6"
+      >
+        <button
+          id="show-user-totals-btn"
+          class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded mb-4"
+        >
+          Volver a Datos por Usuario
+        </button>
+        <h2 class="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-200">
+          Totales Todos los Usuarios
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+          <div class="bg-green-100 dark:bg-green-900 p-3 rounded shadow">
+            <h4 class="font-semibold text-green-800 dark:text-green-200">
+              Total Pago Eventos
+            </h4>
+            <p class="text-lg font-bold text-green-800 dark:text-white">
+              $<span id="total-pago-all">0</span>
+            </p>
+          </div>
+          <div class="bg-orange-100 dark:bg-orange-900 p-3 rounded shadow">
+            <h4 class="font-semibold text-orange-800 dark:text-orange-200">
+              Total Horas Extra
+            </h4>
+            <p class="text-lg font-bold text-orange-800 dark:text-white">
+              <span id="total-horas-all">0</span>
+            </p>
+          </div>
+          <div class="bg-red-100 dark:bg-red-900 p-3 rounded shadow">
+            <h4 class="font-semibold text-red-800 dark:text-red-200">
+              Total Gastos
+            </h4>
+            <p class="text-lg font-bold text-red-800 dark:text-white">
+              $<span id="total-gastos-all">0</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sección de Próximos Eventos (solo admin) -->
+      <section
+        class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6 transition-colors duration-300"
+      >
+        <h2 class="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-200">
+          Próximos Eventos
+        </h2>
+        <form id="proximo-evento-form" class="space-y-4">
+          <div>
+            <label
+              for="proximo-nombre"
+              class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"
+            >
+              Nombre del evento
+            </label>
+            <input
+              type="text"
+              id="proximo-nombre"
+              required
+              placeholder="Ej: Reunión mensual"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label
+                for="proximo-fecha-inicio"
+                class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"
+              >
+                Fecha de inicio
+              </label>
+              <input
+                type="date"
+                id="proximo-fecha-inicio"
+                required
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div>
+              <label
+                for="proximo-fecha-fin"
+                class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"
+              >
+                Fecha de fin
+              </label>
+              <input
+                type="date"
+                id="proximo-fecha-fin"
+                required
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label
+              for="proximo-descripcion"
+              class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"
+            >
+              Descripción
+            </label>
+            <textarea
+              id="proximo-descripcion"
+              rows="3"
+              required
+              placeholder="Detalles del evento..."
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+            ></textarea>
+          </div>
+          <div class="flex justify-end">
+            <button
+              type="submit"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition duration-300"
+            >
+              Agregar Próximo Evento
+            </button>
+          </div>
+        </form>
+
+        <!-- Botón para ir al calendario -->
+        <div class="mt-6 flex justify-center">
+          <a
+            href="calendar.html"
+            id="ver-calendario-btn"
+            class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg flex items-center transition duration-300 shadow-md"
+            onclick="localStorage.setItem('from_admin_page', 'true');"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 mr-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            Ver Calendario
+          </a>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

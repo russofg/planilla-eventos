@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planilla Eventos</title>
+    <link rel="stylesheet" href="output.css" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#3b82f6" />
+    <!-- jsPDF and autoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+    <!-- Toastify CSS -->
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    />
+
+    <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.8/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.8/index.global.min.js"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+  </head>
+  <body
+    class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300"
+  >
+    <div
+      id="app"
+      class="container mx-auto p-4 md:p-6 lg:p-8"
+      style="display: none"
+    >
+      <!-- Loading Indicator -->
+      <div
+        id="loading-indicator"
+        class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+        style="display: none"
+      >
+        <div class="text-white text-xl font-semibold">Cargando...</div>
+      </div>
+
+      <!-- Header -->
+      <header
+        class="flex flex-col md:flex-row justify-between items-center mb-6 pb-4 border-b border-gray-300 dark:border-gray-700"
+      >
+        <h1
+          class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2 md:mb-0"
+        >
+          Planilla de Eventos
+        </h1>
+        <div class="flex items-center space-x-4">
+          <span
+            id="user-email"
+            class="text-sm text-gray-600 dark:text-gray-400"
+          ></span>
+          <button
+            id="admin-page-button"
+            class="bg-purple-600 hover:bg-purple-800 text-white py-2 px-4 rounded transition-colors text-sm hidden"
+          >
+            Panel de Admin
+          </button>
+          <button
+            id="theme-toggle"
+            class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            aria-label="Toggle dark mode"
+          >
+            <span id="theme-icon">🌙</span>
+            <!-- Icon changes via JS -->
+          </button>
+          <button
+            id="logout-button"
+            class="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors text-sm"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content Area -->
+      <!-- Banner de estado de conexión -->
+      <div
+        id="connection-status"
+        style="
+          display: none;
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background-color: #f87171; /* rojo por defecto */
+          color: white;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-weight: bold;
+          z-index: 9999;
+          box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+        "
+      >
+        🛑 Estás offline
+      </div>
+
+      <div id="main-content" style="display: none">
+        <!-- Totals Summary -->
+        <section
+          id="totals-summary"
+          class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
+        >
+          <div
+            class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center"
+          >
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Sueldo Fijo
+            </h3>
+            <p
+              id="display-sueldo"
+              class="text-xl font-semibold text-green-600 dark:text-green-400"
+            >
+              $0
+            </p>
+          </div>
+          <div
+            class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center"
+          >
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Total Eventos
+            </h3>
+            <p
+              id="display-eventos"
+              class="text-xl font-semibold text-blue-600 dark:text-blue-400"
+            >
+              $0
+            </p>
+          </div>
+          <div
+            class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center"
+          >
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Total Gastos
+            </h3>
+            <p
+              id="display-gastos"
+              class="text-xl font-semibold text-red-600 dark:text-red-400"
+            >
+              $0
+            </p>
+          </div>
+          <div
+            class="bg-blue-100 dark:bg-blue-900 p-4 rounded-lg shadow text-center col-span-2 md:col-span-1 border border-blue-500"
+          >
+            <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">
+              TOTAL FINAL
+            </h3>
+            <p
+              id="total-final"
+              class="text-2xl font-bold text-blue-700 dark:text-blue-300"
+            >
+              $0
+            </p>
+          </div>
+        </section>
+
+        <!-- Forms Section -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <!-- Add Event Form -->
+          <div class="md:col-span-2">
+            <form
+              id="form-operaciones"
+              class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow"
+            >
+              <h2 class="text-xl font-semibold mb-4">Registrar Evento</h2>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label for="evento" class="block text-sm font-medium mb-1"
+                    >Nombre Evento</label
+                  >
+                  <input
+                    type="text"
+                    id="evento"
+                    name="evento"
+                    required
+                    class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label
+                    for="fecha-operacion"
+                    class="block text-sm font-medium mb-1"
+                    >Fecha</label
+                  >
+                  <input
+                    type="date"
+                    id="fecha-operacion"
+                    name="fecha-operacion"
+                    required
+                    class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label
+                    for="hora-entrada"
+                    class="block text-sm font-medium mb-1"
+                    >Hora Entrada</label
+                  >
+                  <input
+                    type="time"
+                    id="hora-entrada"
+                    name="hora-entrada"
+                    required
+                    class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label
+                    for="hora-salida"
+                    class="block text-sm font-medium mb-1"
+                    >Hora Salida</label
+                  >
+                  <input
+                    type="time"
+                    id="hora-salida"
+                    name="hora-salida"
+                    required
+                    class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                  <div class="flex items-center">
+                    <input
+                      id="operacion"
+                      name="operacion"
+                      type="checkbox"
+                      class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label for="operacion" class="ml-2 block text-sm"
+                      >¿Operación?</label
+                    >
+                  </div>
+                  <div class="flex items-center">
+                    <input
+                      id="feriado"
+                      name="feriado"
+                      type="checkbox"
+                      class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label for="feriado" class="ml-2 block text-sm"
+                      >¿Es feriado?</label
+                    >
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded transition-colors"
+                >
+                  Agregar Evento
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Add Expense & Fixed Salary -->
+          <div class="space-y-6">
+            <!-- Add Expense Form -->
+            <form
+              id="add-gasto-form"
+              class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow"
+            >
+              <h2 class="text-xl font-semibold mb-4">Registrar Gasto</h2>
+              <div class="mb-4">
+                <label for="descripcion" class="block text-sm font-medium mb-1"
+                  >Descripción</label
+                >
+                <input
+                  type="text"
+                  id="descripcion"
+                  name="descripcion"
+                  required
+                  class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div class="mb-4">
+                <label for="fecha-gasto" class="block text-sm font-medium mb-1"
+                  >Fecha</label
+                >
+                <input
+                  type="date"
+                  id="fecha-gasto"
+                  name="fecha"
+                  required
+                  class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div class="mb-4">
+                <label for="monto" class="block text-sm font-medium mb-1"
+                  >Monto ($)</label
+                >
+                <input
+                  type="number"
+                  id="monto"
+                  name="monto"
+                  step="0.01"
+                  required
+                  class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <button
+                type="submit"
+                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded transition-colors"
+              >
+                Agregar Gasto
+              </button>
+            </form>
+
+            <!-- Fixed Salary Input -->
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+              <h2 class="text-xl font-semibold mb-4">Sueldo Fijo</h2>
+              <div class="flex items-center space-x-2">
+                <input
+                  type="number"
+                  id="sueldo-fijo"
+                  name="sueldo-fijo"
+                  placeholder="Ingrese sueldo fijo"
+                  step="0.01"
+                  class="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button
+                  id="save-sueldo-button"
+                  class="bg-green-500 hover:bg-green-700 text-white py-2 px-3 rounded transition-colors"
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Filters and Actions Section -->
+        <section class="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+          <h2 class="text-lg font-semibold mb-3">Filtros y Acciones</h2>
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4 items-end"
+          >
+            <!-- Month Filter -->
+            <div>
+              <label for="filter-month" class="block text-sm font-medium mb-1"
+                >Mes</label
+              >
+              <select
+                id="filter-month"
+                class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">Todos</option>
+                <option value="1">Enero</option>
+                <option value="2">Febrero</option>
+                <option value="3">Marzo</option>
+                <option value="4">Abril</option>
+                <option value="5">Mayo</option>
+                <option value="6">Junio</option>
+                <option value="7">Julio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+              </select>
+            </div>
+            <!-- Year Filter -->
+            <div>
+              <label for="filter-year" class="block text-sm font-medium mb-1"
+                >Año</label
+              >
+              <select
+                id="filter-year"
+                class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <!-- Options populated by JS -->
+              </select>
+            </div>
+            <!-- Event Name Filter -->
+            <div>
+              <label
+                for="filtro-nombre-evento"
+                class="block text-sm font-medium mb-1"
+                >Nombre Evento</label
+              >
+              <input
+                type="text"
+                id="filtro-nombre-evento"
+                placeholder="Buscar por nombre..."
+                class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <!-- Start Date Filter -->
+            <div>
+              <label
+                for="filtro-fecha-inicio"
+                class="block text-sm font-medium mb-1"
+                >Fecha Desde</label
+              >
+              <input
+                type="date"
+                id="filtro-fecha-inicio"
+                class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <!-- End Date Filter -->
+            <div>
+              <label
+                for="filtro-fecha-fin"
+                class="block text-sm font-medium mb-1"
+                >Fecha Hasta</label
+              >
+              <input
+                type="date"
+                id="filtro-fecha-fin"
+                class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+          <!-- Action Buttons -->
+          <div class="flex flex-wrap gap-2 justify-start">
+            <button
+              id="limpiar-filtros-eventos"
+              class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded transition-colors text-sm"
+            >
+              Limpiar Filtros
+            </button>
+            <button
+              id="export-pdf-button"
+              class="bg-purple-500 hover:bg-purple-700 text-white py-2 px-4 rounded transition-colors text-sm"
+            >
+              Exportar a PDF
+            </button>
+            <button
+              id="export-csv-button"
+              class="bg-indigo-500 hover:bg-indigo-700 text-white py-2 px-4 rounded transition-colors text-sm ml-2"
+            >
+              Exportar a CSV
+            </button>
+            <button
+              id="export-excel-button"
+              class="bg-pink-500 hover:bg-pink-700 text-white py-2 px-4 rounded transition-colors text-sm ml-2"
+            >
+              Exportar a Excel
+            </button>
+            <button
+              id="open-report-config"
+              class="bg-gray-700 hover:bg-gray-900 text-white py-2 px-4 rounded transition-colors text-sm ml-2"
+            >
+              Configurar Informe
+            </button>
+            <!-- Menú desplegable para notificaciones -->
+            <div class="relative inline-block text-left">
+              <button
+                id="notifications-dropdown-btn"
+                class="bg-teal-500 hover:bg-teal-600 text-white py-2 px-4 rounded transition-colors text-sm inline-flex items-center relative"
+              >
+                <span>Notificaciones</span>
+                <svg
+                  class="w-4 h-4 ml-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                  ></path>
+                </svg>
+                <!-- Indicador de notificaciones pendientes -->
+                <span
+                  id="notification-indicator"
+                  class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center hidden"
+                  >!</span
+                >
+              </button>
+              <div
+                id="notifications-dropdown"
+                class="hidden origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-10"
+              >
+                <div class="py-1">
+                  <button
+                    id="enable-notifications"
+                    class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-teal-100 hover:text-teal-900 w-full text-left"
+                  >
+                    Activar Notificaciones
+                  </button>
+                </div>
+                <div class="py-1">
+                  <button
+                    id="check-notifications"
+                    class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-100 hover:text-blue-900 w-full text-left"
+                  >
+                    Verificar Notificaciones
+                  </button>
+                  <button
+                    id="test-notification"
+                    class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-green-100 hover:text-green-900 w-full text-left"
+                  >
+                    Enviar Notificación de Prueba
+                  </button>
+                  <button
+                    id="reset-notifications"
+                    class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-red-100 hover:text-red-900 w-full text-left"
+                  >
+                    Reiniciar Notificaciones
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Data Tables Section -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Events Table -->
+          <div
+            class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow overflow-x-auto lg:col-span-2"
+          >
+            <div class="flex justify-between items-center mb-3">
+              <h2 class="text-xl font-semibold">Eventos Registrados</h2>
+              <div class="text-right">
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  Total Horas Extra
+                </p>
+                <p id="total-horas-extra" class="font-semibold text-lg">0</p>
+              </div>
+            </div>
+            <table
+              class="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+            >
+              <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th
+                    class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    Evento
+                  </th>
+                  <th
+                    class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    Día
+                  </th>
+                  <th
+                    class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    Día Sem.
+                  </th>
+                  <th
+                    class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    Entrada
+                  </th>
+                  <th
+                    class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    Salida
+                  </th>
+                  <th
+                    class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    Oper.
+                  </th>
+                  <th
+                    class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    H. Extra
+                  </th>
+                  <th
+                    class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    Total
+                  </th>
+                  <th
+                    class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  ></th>
+                  <!-- Delete -->
+                </tr>
+              </thead>
+              <tbody
+                id="eventos-body"
+                class="divide-y divide-gray-200 dark:divide-gray-700 text-sm"
+              >
+                <!-- Event rows added by JS -->
+                <tr>
+                  <td colspan="9" class="text-center py-4">
+                    Cargando eventos...
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class="bg-gray-50 dark:bg-gray-700 font-semibold">
+                  <td colspan="7" class="px-3 py-2 text-right">
+                    Total Eventos:
+                  </td>
+                  <td id="total-pago" class="px-3 py-2 text-left">$0</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+            <!-- Paginación de Eventos -->
+            <div id="events-pagination" class="mt-4"></div>
+          </div>
+
+          <!-- Expenses Table -->
+          <div
+            class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow overflow-x-auto"
+          >
+            <h2 class="text-xl font-semibold mb-3">Gastos Registrados</h2>
+            <table
+              class="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+            >
+              <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th
+                    class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    Descripción
+                  </th>
+                  <th
+                    class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  >
+                    Monto
+                  </th>
+                  <th
+                    class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider"
+                  ></th>
+                  <!-- Delete -->
+                </tr>
+              </thead>
+              <tbody
+                id="gastos-body"
+                class="divide-y divide-gray-200 dark:divide-gray-700 text-sm"
+              >
+                <!-- Expense rows added by JS -->
+                <tr>
+                  <td colspan="3" class="text-center py-4">
+                    Cargando gastos...
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class="bg-gray-50 dark:bg-gray-700 font-semibold">
+                  <td class="px-4 py-2 text-right">Total Gastos:</td>
+                  <td id="total-gastos" class="px-4 py-2 text-left">$0</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+            <!-- Paginación de Gastos -->
+            <div id="expenses-pagination" class="mt-4"></div>
+          </div>
+        </section>
+
+        <!-- Calendar Section -->
+        <section
+          id="calendar-section"
+          class="mb-8 mt-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow"
+        >
+          <h2 class="text-xl font-semibold mb-4">Calendario de Eventos</h2>
+          <div id="calendar"></div>
+          <div class="mt-4 flex space-x-2">
+            <button
+              id="import-google-btn"
+              class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded"
+            >
+              Importar Google Calendar
+            </button>
+            <button
+              id="export-google-btn"
+              class="bg-green-500 hover:bg-green-700 text-white py-2 px-4 rounded relative"
+            >
+              Exportar a Google Calendar
+              <span
+                id="export-indicator"
+                class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center"
+                style="display: none"
+              ></span>
+            </button>
+            <a
+              href="calendar.html"
+              class="bg-purple-500 hover:bg-purple-700 text-white py-2 px-4 rounded inline-flex items-center"
+            >
+              <span>Ver Calendario Completo</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="ml-1 h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M14 5l7 7m0 0l-7 7m7-7H3"
+                />
+              </svg>
+            </a>
+          </div>
+        </section>
+      </div>
+      <!-- End Main Content Area -->
+
+      <!-- Login Prompt (shown if not logged in) -->
+      <div
+        id="login-prompt"
+        class="text-center mt-20 p-8 bg-white dark:bg-gray-800 rounded-lg shadow max-w-md mx-auto"
+        style="display: none"
+      >
+        <h2 class="text-2xl font-semibold mb-4">Bienvenido</h2>
+        <p class="mb-6 text-gray-600 dark:text-gray-400">
+          Por favor, inicia sesión para acceder a la planilla.
+        </p>
+        <a
+          href="login.html"
+          class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-6 rounded transition-colors"
+        >
+          Iniciar Sesión
+        </a>
+        <p class="mt-4 text-sm">
+          ¿No tienes cuenta?
+          <a
+            href="register.html"
+            class="text-blue-600 hover:underline dark:text-blue-400"
+            >Regístrate aquí</a
+          >
+        </p>
+      </div>
+    </div>
+    <!-- End App Container -->
+
+    <!-- Toastify JS -->
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/toastify-js"
+    ></script>
+
+    <!-- Firebase SDK -->
+    <!-- Moved to firebase.config.js -->
+
+    <!-- Your App Logic -->
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- ExcelJS para estilos en Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+    <!-- Your App Logic -->
+    <!-- Load main.js as a module -->
+    <script type="module" src="main.js?v=20250623-fix-cache"></script>
+
+    <!-- HOTFIX: Limitar eventos a 20 como solución temporal al problema de cache -->
+    <script>
+      // Función que forza el límite de 20 eventos
+      function limitEventsTo20() {
+        const eventsTableBody = document.querySelector("#events-table tbody");
+        if (eventsTableBody) {
+          const rows = Array.from(eventsTableBody.querySelectorAll("tr"));
+          const totalRow = rows.find((row) =>
+            row.querySelector("td")?.textContent?.includes("Total Eventos:")
+          );
+
+          // Filtrar solo las filas de eventos (no el total)
+          const eventRows = rows.filter(
+            (row) =>
+              !row.querySelector("td")?.textContent?.includes("Total Eventos:")
+          );
+
+          if (eventRows.length > 20) {
+            console.log(
+              `[HOTFIX] Ocultando ${
+                eventRows.length - 20
+              } eventos para mostrar solo 20`
+            );
+            // Ocultar eventos después del 20
+            eventRows.slice(20).forEach((row) => {
+              row.style.display = "none";
+            });
+
+            // Habilitar botón "Siguiente" si hay más eventos
+            const nextBtn = document.querySelector(
+              '[id*="next"], [class*="siguiente"], button:contains("Siguiente")'
+            );
+            if (nextBtn) {
+              nextBtn.disabled = false;
+              nextBtn.classList.remove("opacity-50", "cursor-not-allowed");
+            }
+          }
+        }
+      }
+
+      // Ejecutar cuando el DOM esté listo y luego cada segundo por 10 segundos
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      function tryLimitEvents() {
+        limitEventsTo20();
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(tryLimitEvents, 1000);
+        }
+      }
+
+      // Iniciar cuando se cargue la página
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", tryLimitEvents);
+      } else {
+        tryLimitEvents();
+      }
+    </script>
+
+    <!-- Report Configuration Modal -->
+    <div
+      id="report-config-modal"
+      class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden items-center justify-center z-50"
+    >
+      <div
+        class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow max-w-md w-full"
+      >
+        <h3 class="text-lg font-semibold mb-4">Configurar Informe</h3>
+        <form id="report-config-form" class="space-y-4">
+          <div>
+            <h4 class="font-medium mb-2">Campos de Eventos</h4>
+            <label
+              ><input type="checkbox" name="event-field" value="0" checked />
+              Evento</label
+            >
+            <label
+              ><input type="checkbox" name="event-field" value="1" checked />
+              Día</label
+            >
+            <label
+              ><input type="checkbox" name="event-field" value="2" checked />
+              Día Sem.</label
+            >
+            <label
+              ><input type="checkbox" name="event-field" value="3" checked />
+              Entrada</label
+            >
+            <label
+              ><input type="checkbox" name="event-field" value="4" checked />
+              Salida</label
+            >
+            <label
+              ><input type="checkbox" name="event-field" value="5" checked />
+              Oper.</label
+            >
+            <label
+              ><input type="checkbox" name="event-field" value="6" checked /> H.
+              Extra</label
+            >
+            <label
+              ><input type="checkbox" name="event-field" value="7" checked />
+              Total</label
+            >
+          </div>
+          <div>
+            <h4 class="font-medium mb-2">Campos de Gastos</h4>
+            <label
+              ><input type="checkbox" name="expense-field" value="0" checked />
+              Descripción</label
+            >
+            <label
+              ><input type="checkbox" name="expense-field" value="1" checked />
+              Monto</label
+            >
+          </div>
+          <div class="flex justify-end space-x-2 mt-4">
+            <button
+              type="button"
+              id="close-report-config"
+              class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded"
+            >
+              Aplicar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

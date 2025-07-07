@@ -1,0 +1,55 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    
+    "notifications": {
+      "$userId": {
+        ".read": "auth !== null && auth.uid === $userId",
+        ".write": "auth !== null",
+
+        "$notificationId": {
+          ".validate": "newData.hasChildren(['title', 'body', 'timestamp'])",
+          "title": {
+            ".validate": "newData.isString() && newData.val().length <= 100"
+          },
+          "body": {
+            ".validate": "newData.isString() && newData.val().length <= 1000"
+          },
+          "timestamp": {
+            ".validate": "newData.isNumber()"
+          },
+          "read": {
+            ".validate": "newData.isBoolean()"
+          },
+          "$other": {
+            ".validate": true
+          }
+        }
+      }
+    },
+    
+    "userDevices": {
+      "$userId": {
+        ".read": "auth !== null && (auth.uid === $userId)",
+        ".write": "auth !== null",
+        
+        "devices": {
+          "$deviceId": {
+            ".validate": "newData.isNumber() || newData.isString()"
+          }
+        },
+        "userId": {
+          ".validate": "newData.isString() && newData.val() === $userId"
+        }
+      }
+    },
+    
+    "users": {
+      "$uid": {
+        ".read": "auth !== null",
+        ".write": "auth !== null && auth.uid === $uid"
+      }
+    }
+  }
+}

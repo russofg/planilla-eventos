@@ -1,0 +1,26 @@
+# Node modules
+node_modules/
+
+# Firebase private keys
+serviceAccountKey.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Build files
+dist/
+build/
