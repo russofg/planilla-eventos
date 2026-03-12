@@ -18,6 +18,10 @@ import { calcularPagoEvento } from "../utils/calculations"
 import { generatePdf } from "../utils/generatePdf"
 import { useAuth } from "../contexts/AuthContext"
 import { playPopSound, playTickSound } from "../utils/audio"
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell 
+} from 'recharts';
 
 gsap.registerPlugin(useGSAP)
 
@@ -183,8 +187,81 @@ export default function Dashboard() {
 
     const pTotalFinal = sueldoFijo + pTotalEvents + pTotalExpenses + pBonos - pAdelantos;
 
-    return { totalFinal: pTotalFinal, eventsCount: pEvents.length };
-  }, [events, expenses, extras, filterMonth, filterYear, filterText, sueldoFijo, tarifasGlobales]);
+    const calculateGrowth = (current, prev) => {
+      if (prev === 0) return current > 0 ? 100 : 0;
+      return ((current - prev) / Math.abs(prev)) * 100;
+    };
+
+    return { 
+      totalFinal: pTotalFinal, 
+      eventsCount: pEvents.length,
+      totalEvents: pTotalEvents,
+      totalExpenses: pTotalExpenses,
+      totalBonos: pBonos,
+      totalAdelantos: pAdelantos,
+      growths: {
+        final: calculateGrowth(monthTotalFinal, pTotalFinal),
+        events: calculateGrowth(monthTotalEvents, pTotalEvents),
+        expenses: calculateGrowth(monthTotalExpenses, pTotalExpenses),
+        bonos: calculateGrowth(pBonos, pBonos), // This seems redundant if pBonos is used twice, should be monthTotalBonos
+        adelantos: calculateGrowth(pAdelantos, pAdelantos)
+      }
+    };
+  }, [events, expenses, extras, filterMonth, filterYear, filterText, sueldoFijo, monthTotalFinal, monthTotalEvents, monthTotalExpenses, monthTotalBonos, monthTotalAdelantos, tarifasGlobales]);
+
+  // Fix growth calculation Redundancy and add Chart Data
+  const statsWithGrowth = useMemo(() => {
+    if (!prevMonthStats) return null;
+    
+    const calculateGrowth = (current, prev) => {
+      if (prev === 0) return current > 0 ? 100 : 0;
+      return ((current - prev) / Math.abs(prev)) * 100;
+    };
+
+    return {
+      final: calculateGrowth(monthTotalFinal, prevMonthStats.totalFinal),
+      events: calculateGrowth(monthTotalEvents, prevMonthStats.totalEvents),
+      expenses: calculateGrowth(monthTotalExpenses, prevMonthStats.totalExpenses),
+      bonos: calculateGrowth(monthTotalBonos, prevMonthStats.totalBonos),
+      adelantos: calculateGrowth(monthTotalAdelantos, prevMonthStats.totalAdelantos),
+    }
+  }, [monthTotalFinal, monthTotalEvents, monthTotalExpenses, monthTotalBonos, monthTotalAdelantos, prevMonthStats]);
+
+  const { chartData, pieData } = useMemo(() => {
+    // 1. Process Trend Data (AreaChart)
+    const daysInMonth = new Date(parseInt(filterYear), parseInt(filterMonth) + 1, 0).getDate();
+    const data = [];
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+      const dayStr = i.toString().padStart(2, '0');
+      const dateKey = `${filterYear}-${(parseInt(filterMonth) + 1).toString().padStart(2, '0')}-${dayStr}`;
+      
+      const dayEvents = filteredEvents.filter(e => e.fecha === dateKey).reduce((acc, curr) => {
+        const calc = calcularPagoEvento(curr.fecha, curr.horaEntrada, curr.horaSalida, curr.operacion, curr.feriado, tarifasGlobales);
+        return acc + calc.pagoTotalEvento;
+      }, 0);
+
+      const dayExpenses = filteredExpenses.filter(e => e.fecha === dateKey).reduce((acc, curr) => acc + (curr.monto || 0), 0);
+      const dayExtras = filteredExtras.filter(e => e.fecha === dateKey).reduce((acc, curr) => {
+        return acc + (curr.tipo === 'bono' ? curr.monto : -curr.monto);
+      }, 0);
+
+      data.push({
+        name: i,
+        Ingresos: dayEvents + (dayExtras > 0 ? dayExtras : 0),
+        Gastos: Math.abs(dayExpenses + (dayExtras < 0 ? dayExtras : 0))
+      });
+    }
+
+    // 2. Process Pie Data (Income Sources)
+    const pData = [
+      { name: 'Sueldo', value: sueldoFijo, color: '#3b82f6' },
+      { name: 'Eventos', value: monthTotalEvents, color: '#10b981' },
+      { name: 'Bonos', value: monthTotalBonos, color: '#06b6d4' }
+    ].filter(d => d.value > 0);
+
+    return { chartData: data, pieData: pData };
+  }, [filteredEvents, filteredExpenses, filteredExtras, filterMonth, filterYear, sueldoFijo, monthTotalEvents, monthTotalBonos, tarifasGlobales]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-AR', { 
@@ -250,10 +327,16 @@ export default function Dashboard() {
         </div>
         
         {/* Cards Skeleton */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-24 bg-white/5 rounded-xl border border-white/5 animate-pulse" />
           ))}
+        </div>
+
+        {/* Analytics Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3 h-[300px] bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
+          <div className="lg:col-span-1 h-[300px] bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
         </div>
 
         {/* Filters Skeleton */}
@@ -261,7 +344,7 @@ export default function Dashboard() {
 
         {/* Main Content Skeleton */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 h-96 bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
+          <div className="lg:col-span-2 h-[500px] bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
           <div className="lg:col-span-1 space-y-6">
             <div className="h-64 bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
             <div className="h-64 bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
@@ -305,7 +388,14 @@ export default function Dashboard() {
         <Tilt tiltMaxAngleX={5} tiltMaxAngleY={5} glareEnable={true} glareMaxOpacity={0.1} glareColor="white" glarePosition="all" scale={1.02} transitionSpeed={2000} className="flex-1 min-w-[140px]">
           <div className="glass-card rounded-xl p-4 relative overflow-hidden group h-full">
             <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <h3 className="text-xs font-medium text-gray-400 mb-1">Eventos</h3>
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="text-xs font-medium text-gray-400">Eventos</h3>
+              {statsWithGrowth && (
+                <span className={`text-[10px] font-bold ${statsWithGrowth.events >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {statsWithGrowth.events >= 0 ? '+' : ''}{statsWithGrowth.events.toFixed(0)}%
+                </span>
+              )}
+            </div>
             <p className="text-lg sm:text-xl font-bold text-green-400 break-all leading-tight">
               <CountUp end={monthTotalEvents} formattingFn={formatCurrency} duration={1.5} />
             </p>
@@ -316,7 +406,14 @@ export default function Dashboard() {
           <Tilt tiltMaxAngleX={5} tiltMaxAngleY={5} glareEnable={true} glareMaxOpacity={0.1} glareColor="white" glarePosition="all" scale={1.02} transitionSpeed={2000} className="flex-1 min-w-[140px]">
             <div className="glass-card rounded-xl p-4 relative overflow-hidden group h-full">
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <h3 className="text-xs font-medium text-gray-400 mb-1">Bonos</h3>
+              <div className="flex justify-between items-start mb-1">
+                <h3 className="text-xs font-medium text-gray-400">Bonos</h3>
+                {statsWithGrowth && statsWithGrowth.bonos !== 0 && (
+                  <span className={`text-[10px] font-bold ${statsWithGrowth.bonos >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {statsWithGrowth.bonos >= 0 ? '+' : ''}{statsWithGrowth.bonos.toFixed(0)}%
+                  </span>
+                )}
+              </div>
               <p className="text-lg sm:text-xl font-bold text-emerald-400 break-all leading-tight">
                 <CountUp end={monthTotalBonos} formattingFn={(val) => `+${formatCurrency(val)}`} duration={1.5} />
               </p>
@@ -327,7 +424,14 @@ export default function Dashboard() {
         <Tilt tiltMaxAngleX={5} tiltMaxAngleY={5} glareEnable={true} glareMaxOpacity={0.1} glareColor="white" glarePosition="all" scale={1.02} transitionSpeed={2000} className="flex-1 min-w-[140px]">
           <div className="glass-card rounded-xl p-4 relative overflow-hidden group h-full">
             <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <h3 className="text-xs font-medium text-gray-400 mb-1">Gastos</h3>
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="text-xs font-medium text-gray-400">Gastos</h3>
+              {statsWithGrowth && (
+                <span className={`text-[10px] font-bold ${statsWithGrowth.expenses <= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {statsWithGrowth.expenses > 0 ? '+' : ''}{statsWithGrowth.expenses.toFixed(0)}%
+                </span>
+              )}
+            </div>
             <p className="text-lg sm:text-xl font-bold text-red-400 break-all leading-tight">
               <CountUp end={monthTotalExpenses} formattingFn={formatCurrency} duration={1.5} />
             </p>
@@ -338,7 +442,14 @@ export default function Dashboard() {
           <Tilt tiltMaxAngleX={5} tiltMaxAngleY={5} glareEnable={true} glareMaxOpacity={0.1} glareColor="white" glarePosition="all" scale={1.02} transitionSpeed={2000} className="flex-1 min-w-[140px]">
             <div className="glass-card rounded-xl p-4 relative overflow-hidden group h-full">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <h3 className="text-xs font-medium text-gray-400 mb-1">Adelantos</h3>
+              <div className="flex justify-between items-start mb-1">
+                <h3 className="text-xs font-medium text-gray-400">Adelantos</h3>
+                {statsWithGrowth && statsWithGrowth.adelantos !== 0 && (
+                  <span className={`text-[10px] font-bold ${statsWithGrowth.adelantos <= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {statsWithGrowth.adelantos > 0 ? '+' : ''}{statsWithGrowth.adelantos.toFixed(0)}%
+                  </span>
+                )}
+              </div>
               <p className="text-lg sm:text-xl font-bold text-orange-400 break-all leading-tight">
                 <CountUp end={monthTotalAdelantos} formattingFn={(val) => `-${formatCurrency(val)}`} duration={1.5} />
               </p>
@@ -349,12 +460,140 @@ export default function Dashboard() {
         <Tilt tiltMaxAngleX={5} tiltMaxAngleY={5} glareEnable={true} glareMaxOpacity={0.1} glareColor="white" glarePosition="all" scale={1.02} transitionSpeed={2000} className="flex-1 min-w-[150px]">
           <div className="glass-card rounded-xl p-4 relative overflow-hidden group border-[var(--primary)]/50 shadow-[0_0_15px_rgba(37,106,244,0.15)] h-full">
             <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/20 to-transparent" />
-            <h3 className="text-xs font-medium text-[var(--brand-300)] mb-1">TOTAL</h3>
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="text-xs font-medium text-[var(--brand-300)]">TOTAL</h3>
+              {statsWithGrowth && (
+                <span className={`text-[10px] font-bold ${statsWithGrowth.final >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {statsWithGrowth.final >= 0 ? '+' : ''}{statsWithGrowth.final.toFixed(0)}%
+                </span>
+              )}
+            </div>
             <p className="text-xl sm:text-2xl font-bold text-white drop-shadow-md break-all leading-tight">
               <CountUp end={monthTotalFinal} formattingFn={formatCurrency} duration={2} />
             </p>
           </div>
         </Tilt>
+      </div>
+
+      {/* Analytics Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-item">
+        <div className="lg:col-span-3 glass-card rounded-2xl p-6 h-[300px]">
+          <h3 className="text-sm font-semibold text-gray-400 mb-4 flex items-center gap-2">
+            Tendencia Mensual (Ingresos vs Gastos)
+          </h3>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+              <XAxis 
+                dataKey="name" 
+                stroke="#666" 
+                fontSize={10} 
+                tickLine={false} 
+                axisLine={false}
+                minTickGap={20}
+              />
+              <YAxis hide />
+              <Tooltip 
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="bg-[#1a1c23] border border-white/10 p-3 rounded-xl shadow-2xl backdrop-blur-md">
+                        <p className="text-[10px] text-gray-500 mb-2 uppercase tracking-wider font-bold">Día {payload[0].payload.name}</p>
+                        <div className="space-y-1">
+                          <p className="text-xs text-emerald-400 flex justify-between gap-4">
+                            <span>Ingresos:</span>
+                            <span className="font-bold">{formatCurrency(payload[0].value)}</span>
+                          </p>
+                          <p className="text-xs text-rose-400 flex justify-between gap-4">
+                            <span>Gastos:</span>
+                            <span className="font-bold">{formatCurrency(payload[1].value)}</span>
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="Ingresos" 
+                stroke="#10b981" 
+                strokeWidth={3}
+                fillOpacity={1} 
+                fill="url(#colorIngresos)" 
+              />
+              <Area 
+                type="monotone" 
+                dataKey="Gastos" 
+                stroke="#f43f5e" 
+                strokeWidth={3}
+                fillOpacity={1} 
+                fill="url(#colorGastos)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="lg:col-span-1 glass-card rounded-2xl p-6 h-[300px] flex flex-col justify-center relative overflow-hidden">
+          <h3 className="text-sm font-semibold text-gray-400 mb-2 text-center">Fuentes</h3>
+          <div className="h-40 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={70}
+                  paddingAngle={8}
+                  dataKey="value"
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-[#1a1c23] border border-white/10 px-3 py-1.5 rounded-lg shadow-xl">
+                          <p className="text-xs font-bold" style={{ color: payload[0].payload.color }}>
+                            {payload[0].name}: {formatCurrency(payload[0].value)}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 space-y-2">
+            {pieData.map((item, i) => (
+              <div key={i} className="flex items-center justify-between text-[10px]">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span className="text-gray-400">{item.name}</span>
+                </div>
+                <span className="text-white font-bold">
+                  {((item.value / pieData.reduce((acc, c) => acc + c.value, 0)) * 100).toFixed(0)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Advanced Filter Bar */}
