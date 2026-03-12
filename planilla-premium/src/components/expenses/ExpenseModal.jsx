@@ -45,11 +45,26 @@ export function ExpenseModal({ isOpen, onClose, expenseToEdit = null }) {
     setLoading(true)
     setError("")
 
+    const descClean = formData.descripcion.trim()
+    const montoNum = parseFloat(formData.monto)
+    
+    if (!descClean) {
+      setError("La descripción es obligatoria.")
+      setLoading(false)
+      return
+    }
+
+    if (isNaN(montoNum) || montoNum <= 0) {
+      setError("El monto debe ser un número mayor a 0.")
+      setLoading(false)
+      return
+    }
+
     try {
       const payload = {
-        descripcion: formData.descripcion,
+        descripcion: descClean,
         fecha: formData.fecha,
-        monto: parseFloat(formData.monto) || 0,
+        monto: montoNum,
         userId: currentUser.uid,
         userEmail: currentUser.email,
         updatedAt: serverTimestamp()

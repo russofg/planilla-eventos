@@ -45,11 +45,18 @@ export function EventModal({ isOpen, onClose, eventToEdit = null }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setError("")
+    const eventNameClean = formData.evento.trim()
+    
+    if (eventNameClean.length < 3) {
+      setError("El nombre del evento debe tener al menos 3 caracteres.")
+      setLoading(false)
+      return
+    }
 
     try {
       const payload = {
         ...formData,
+        evento: eventNameClean,
         userId: currentUser.uid,
         userEmail: currentUser.email,
         updatedAt: serverTimestamp()

@@ -65,12 +65,16 @@ export default function Settings() {
   };
 
   const handleSaveProfile = async () => {
-    setIsSaving(true)
-    setSuccessMsg("")
+    const nameClean = localName.trim()
+    if (!nameClean && !localAvatar) {
+       setIsSaving(false)
+       return
+    }
+
     try {
       const prefDocRef = doc(db, COLLECTIONS.USER_PREFS, currentUser.uid)
       await setDoc(prefDocRef, { 
-        nombre: localName, 
+        nombre: nameClean, 
         avatar: localAvatar 
       }, { merge: true })
       setSuccessMsg("Perfil actualizado correctamente.")
@@ -84,10 +88,14 @@ export default function Settings() {
   }
 
   const handleSaveSueldo = async () => {
-    setIsSaving(true)
-    setSuccessMsg("")
+    const parsedSueldo = parseFloat(localSueldo)
+    if (isNaN(parsedSueldo) || parsedSueldo < 0) {
+      alert("El sueldo debe ser un número válido mayor o igual a 0.")
+      setIsSaving(false)
+      return
+    }
+
     try {
-      const parsedSueldo = parseFloat(localSueldo) || 0
       const prefDocRef = doc(db, COLLECTIONS.USER_PREFS, currentUser.uid)
       await setDoc(prefDocRef, { sueldoFijo: parsedSueldo }, { merge: true })
       setSuccessMsg("Sueldo guardado correctamente.")
@@ -101,14 +109,22 @@ export default function Settings() {
   }
 
   const handleSaveTarifas = async () => {
-    setIsSaving(true)
-    setSuccessMsg("")
+    const tFin = parseFloat(localTarifaFin)
+    const tOp = parseFloat(localTarifaOperacion)
+    const tHE = parseFloat(localTarifaHoraExtra)
+
+    if (isNaN(tFin) || tFin < 0 || isNaN(tOp) || tOp < 0 || isNaN(tHE) || tHE < 0) {
+      alert("Todas las tarifas deben ser números positivos.")
+      setIsSaving(false)
+      return
+    }
+
     try {
       const configDocRef = doc(db, COLLECTIONS.CONFIG, "tarifas")
       await setDoc(configDocRef, {
-        tarifaFin: parseFloat(localTarifaFin) || 0,
-        tarifaOperacion: parseFloat(localTarifaOperacion) || 0,
-        tarifaHoraExtra: parseFloat(localTarifaHoraExtra) || 0,
+        tarifaFin: tFin,
+        tarifaOperacion: tOp,
+        tarifaHoraExtra: tHE,
         tarifaComun: tarifasGlobales?.tarifaComun || 11000 // preserve original unused var
       }, { merge: true })
       setSuccessMsg("Tarifas globales guardadas exitosamente.")

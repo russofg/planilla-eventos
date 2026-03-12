@@ -1,12 +1,15 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { AuthProvider, useAuth } from "./contexts/AuthContext"
+import { lazy, Suspense } from "react"
 import Layout from "./components/layout/Layout"
-import Dashboard from "./pages/Dashboard"
-import CalendarView from "./pages/CalendarView"
-import Events from "./pages/Events"
-import Expenses from "./pages/Expenses"
-import Settings from "./pages/Settings"
-import Admin from "./pages/Admin"
+
+// Lazy load heavy pages for performance
+const Dashboard = lazy(() => import("./pages/Dashboard"))
+const CalendarView = lazy(() => import("./pages/CalendarView"))
+const Events = lazy(() => import("./pages/Events"))
+const Expenses = lazy(() => import("./pages/Expenses"))
+const Settings = lazy(() => import("./pages/Settings"))
+const Admin = lazy(() => import("./pages/Admin"))
 
 // Protected Route Component
 function PrivateRoute({ children }) {
@@ -88,17 +91,23 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-            <Route index element={<Dashboard />} />
-            <Route path="calendar" element={<CalendarView />} />
-            <Route path="events" element={<Events />} />
-            <Route path="expenses" element={<Expenses />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="admin" element={<Admin />} />
-          </Route>
-        </Routes>
+        <Suspense fallback={
+          <div className="flex h-screen items-center justify-center bg-[#0a0a0a]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          </div>
+        }>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+              <Route index element={<Dashboard />} />
+              <Route path="calendar" element={<CalendarView />} />
+              <Route path="events" element={<Events />} />
+              <Route path="expenses" element={<Expenses />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="admin" element={<Admin />} />
+            </Route>
+          </Routes>
+        </Suspense>
       </Router>
     </AuthProvider>
   )

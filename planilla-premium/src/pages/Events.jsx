@@ -58,11 +58,16 @@ export default function Events() {
   }
 
   if (loading) {
-     return (
-       <div className="flex items-center justify-center h-full min-h-[500px]">
-         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-       </div>
-     )
+    return (
+      <div className="space-y-6">
+        <div className="h-10 w-48 bg-white/5 rounded-xl animate-pulse" />
+        <div className="space-y-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-24 bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (

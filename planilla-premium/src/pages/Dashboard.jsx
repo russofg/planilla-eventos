@@ -242,8 +242,31 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--primary)]"></div>
+      <div className="space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex flex-col mb-2 space-y-3">
+          <div className="h-4 w-32 bg-white/5 rounded-full animate-pulse" />
+          <div className="h-10 w-64 bg-white/5 rounded-xl animate-pulse" />
+        </div>
+        
+        {/* Cards Skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 bg-white/5 rounded-xl border border-white/5 animate-pulse" />
+          ))}
+        </div>
+
+        {/* Filters Skeleton */}
+        <div className="h-16 bg-white/5 rounded-xl border border-white/5 animate-pulse" />
+
+        {/* Main Content Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-96 bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
+          <div className="lg:col-span-1 space-y-6">
+            <div className="h-64 bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
+            <div className="h-64 bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
+          </div>
+        </div>
       </div>
     );
   }

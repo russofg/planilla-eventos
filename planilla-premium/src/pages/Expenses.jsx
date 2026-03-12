@@ -55,11 +55,16 @@ export default function Expenses() {
   }
 
   if (loading) {
-     return (
-       <div className="flex items-center justify-center h-full min-h-[500px]">
-         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
-       </div>
-     )
+    return (
+      <div className="space-y-6">
+        <div className="h-10 w-48 bg-white/5 rounded-xl animate-pulse" />
+        <div className="space-y-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-20 bg-white/5 rounded-2xl border border-white/5 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const totalGastos = expenses.reduce((acc, curr) => acc + (curr.monto || 0), 0)

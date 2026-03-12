@@ -69,15 +69,16 @@ export default function Admin() {
   }
 
   const handleSaveProximo = async () => {
-    if (!proxNombre || !proxInicio || !proxFin) return;
+    const nameClean = proxNombre.trim()
+    if (!nameClean || !proxInicio || !proxFin) return;
     setProxSaving(true);
     const { addDoc, collection } = await import("firebase/firestore");
     try {
       await addDoc(collection(db, "proximosEventos"), {
-        nombre: proxNombre,
+        nombre: nameClean,
         fechaInicio: proxInicio,
         fechaFin: proxFin,
-        descripcion: proxDesc,
+        descripcion: proxDesc.trim(),
         createdAt: new Date().toISOString()
       });
       setProxNombre("");
