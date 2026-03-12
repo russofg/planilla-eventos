@@ -104,9 +104,7 @@ export default function Layout() {
         )}
       >
         <div className="flex items-center gap-3 p-6 shrink-0 h-20">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
-            <span className="font-bold text-white text-lg">P</span>
-          </div>
+          <img src="/app-logo.png" alt="Logo" className="h-10 w-10 object-contain rounded-xl" />
           {sidebarOpen && (
              <span className="font-semibold text-lg tracking-tight whitespace-nowrap overflow-hidden">
                Planilla BLS

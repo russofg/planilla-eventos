@@ -43,8 +43,9 @@ function Login() {
 
   return (
     <div className="flex h-screen items-center justify-center bg-[var(--background)]">
-      <div className="glass-card p-8 rounded-2xl w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-2 text-center bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Planilla Premium</h1>
+      <div className="glass-card p-8 rounded-2xl w-full max-w-md flex flex-col items-center">
+        <img src="/app-logo.png" alt="Logo" className="h-20 w-20 mb-4 object-contain shadow-2xl" />
+        <h1 className="text-3xl font-bold mb-2 text-center bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Planilla BLS</h1>
         <p className="text-gray-400 text-center mb-6">Inicia sesión para continuar</p>
         
         {error && <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded-xl mb-4 text-center">{error}</div>}
