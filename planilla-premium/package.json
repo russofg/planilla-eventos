@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node prebuild.js && vite",
-    "dev:netlify": "node prebuild.js && npx netlify dev",
-    "build": "node prebuild.js && vite build",
+    "dev": "vite",
+    "dev:netlify": "npx netlify dev",
+    "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
