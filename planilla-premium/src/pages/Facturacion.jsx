@@ -57,7 +57,13 @@ export default function Facturacion() {
         ...factura,
         año: yearParsed,
         mes: monthParsed,
-        userPrefs: userPrefs
+        userPrefs: userPrefs,
+        // Map Firestore schema to what generateFacturaPdf expects
+        razonSocial: factura.razonSocialReceptor || factura.razonSocial || 'Consumidor Final',
+        domicilio: factura.domicilioReceptor || factura.domicilio || '',
+        condicionIva: factura.condicionIvaReceptor || factura.condicionIva || 'Consumidor Final',
+        docTipo: factura.docTipoReceptor || factura.docTipo || 99,
+        docNro: factura.docNroReceptor || factura.docNro || '0',
       };
 
       const pdfBase64 = await generateFacturaPdf(dataParaPdf);
