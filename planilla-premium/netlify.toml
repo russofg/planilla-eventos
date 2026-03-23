@@ -9,7 +9,7 @@
   autoLaunch = false
 
 [functions]
-  directory = "planilla-premium/netlify/functions"
+  directory = "netlify/functions"
   node_bundler = "esbuild"
 
 [[redirects]]
