@@ -33,9 +33,9 @@ export async function handler(event) {
     };
   }
 
-  let decodedToken;
+  let idToken, decodedToken;
   try {
-    const idToken = authHeader.split('Bearer ')[1];
+    idToken = authHeader.split('Bearer ')[1];
     decodedToken = await admin.auth().verifyIdToken(idToken);
   } catch (err) {
     return {
@@ -81,8 +81,8 @@ export async function handler(event) {
     // Usar punto de venta del body o de env var
     const puntoVenta = ptoVta || parseInt(process.env.ARCA_PTO_VENTA || '4', 10);
 
-    // 1. Autenticarse con WSAA
-    const { token, sign } = await getAccessTicket(cert, key, isProduction);
+    // Obtener ticket de acceso o generar uno nuevo
+    const { token, sign } = await getAccessTicket(cert, key, isProduction, idToken);
 
     // 2. Obtener último comprobante
     const ultimoNro = await getUltimoComprobante(token, sign, cuit, puntoVenta, 11, isProduction);

@@ -31,9 +31,9 @@ export async function handler(event) {
     };
   }
 
-  let decodedToken;
+  let idToken, decodedToken;
   try {
-    const idToken = authHeader.split('Bearer ')[1];
+    idToken = authHeader.split('Bearer ')[1];
     decodedToken = await admin.auth().verifyIdToken(idToken);
   } catch (err) {
     return {
@@ -48,7 +48,7 @@ export async function handler(event) {
     const ptoVta = parseInt(process.env.ARCA_PTO_VENTA || '4', 10);
 
     // 1. Autenticarse
-    const { token, sign } = await getAccessTicket(cert, key, isProduction);
+    const { token, sign } = await getAccessTicket(cert, key, isProduction, idToken);
 
     // 2. Consultar último comprobante (Factura C = tipo 11)
     const ultimoNro = await getUltimoComprobante(token, sign, cuit, ptoVta, 11, isProduction);

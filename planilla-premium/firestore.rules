@@ -131,6 +131,10 @@ service cloud.firestore {
       allow write: if isAuth() && isOwner(userId);
     }
     
+    match /config/afipTicket {
+      allow read, write: if isAuth();
+    }
+    
     match /config/{configId} {
       allow read:  if isAuth();
       allow write: if isAuth() && isAdmin();

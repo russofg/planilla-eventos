@@ -151,59 +151,76 @@ function extractTokenAndSign(xml) {
 }
 
 /**
- * Obtiene un ticket de acceso (con cache)
+ * Obtiene un ticket de acceso (con cache distribuido en Firestore)
  * @param {string} certPem - Certificado PEM
  * @param {string} keyPem - Clave privada PEM
  * @param {boolean} isProduction - true para producción, false para homologación
+ * @param {string} idToken - Firebase User ID Token para Auth en Firestore
  * @returns {{ token: string, sign: string }}
  */
-export async function getAccessTicket(certPem, keyPem, isProduction = false) {
-  // 1. Intentar memoria (rápido)
-  // Margen de 5 minutos antes de considerarlo expirado
+export async function getAccessTicket(certPem, keyPem, isProduction = false, idToken) {
+  if (!idToken) throw new Error("Falta idToken para interactuar con la caché de Firestore");
+
+  const project = 'planilla-evento';
+  const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents/config/afipTicket`;
   const margin = 5 * 60 * 1000;
+  
+  // 1. Intentar memoria RAM (muy remoto caso donde el container sobreviva)
   if (cachedTicket && cachedTicket.expiration > Date.now() + margin) {
     return cachedTicket;
   }
 
-  // 2. Intentar archivo en /tmp (útil para netlify dev hot-reloads y serverless cold starts)
+  // 2. Intentar base de datos centralizada (Firestore)
   try {
-    if (fs.existsSync(CACHE_FILE)) {
-      const fileData = fs.readFileSync(CACHE_FILE, 'utf8');
-      const fileCache = JSON.parse(fileData);
-      if (fileCache && fileCache.expiration > Date.now() + margin) {
-        cachedTicket = fileCache;
-        return cachedTicket;
+    const res = await fetch(firestoreUrl, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${idToken}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.fields && data.fields.token && data.fields.expiration) {
+        const expiration = parseInt(data.fields.expiration.integerValue, 10);
+        if (expiration > Date.now() + margin) {
+          cachedTicket = {
+            token: data.fields.token.stringValue,
+            sign: data.fields.sign.stringValue,
+            expiration
+          };
+          return cachedTicket;
+        }
       }
     }
   } catch (err) {
-    console.warn("Warn: No se pudo leer el caché de ticket AFIP del disco:", err.message);
+    console.warn("Error leyendo Firestore cache:", err.message);
   }
 
-  // Si llegamos acá, generar nuevo ticket.
-  // AFIP por defecto emite tickets válidos por 12 horas.
+  // Si llegamos acá, el ticket no existe o expiró. Pedir nuevo a AFIP (12 hrs)
   const ltr = generateLoginTicketRequest('wsfe');
-
-  // 2. Firmar con CMS
   const cmsBase64 = signLoginTicketRequest(ltr, certPem, keyPem);
-
-  // 3. Llamar al WSAA
   const { token, sign } = await callWSAA(cmsBase64, isProduction);
 
-  // Cachear por 12 horas exactas (tiempo de vida del ticket en AFIP)
   const expirationTime = Date.now() + 12 * 60 * 60 * 1000;
+  cachedTicket = { token, sign, expiration: expirationTime };
 
-  cachedTicket = {
-    token,
-    sign,
-    expiration: expirationTime
-  };
-
-  // Guardar en disco para el próximo hot-reload / lambda cold start
+  // Guardar de vuelta en Firestore distribuido
   try {
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(cachedTicket), 'utf8');
+    await fetch(firestoreUrl, {
+      method: 'PATCH',
+      headers: { 
+        'Authorization': `Bearer ${idToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        fields: {
+          token: { stringValue: token },
+          sign: { stringValue: sign },
+          expiration: { integerValue: expirationTime.toString() }
+        }
+      })
+    });
   } catch (err) {
-    console.warn("Warn: No se pudo guardar el caché de ticket AFIP en disco:", err.message);
+    console.error("Error guardando nuevo cache en Firestore:", err.message);
   }
 
-  return { token, sign };
+  return cachedTicket;
 }
