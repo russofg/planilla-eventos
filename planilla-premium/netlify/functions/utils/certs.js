@@ -1,6 +1,6 @@
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
+import { certEnc } from './certData.js';
+import { keyEnc } from './keyData.js';
 
 function decrypt(text, password) {
   const textParts = text.split(':');
@@ -15,8 +15,8 @@ function decrypt(text, password) {
 }
 
 /**
- * Lee y desencripta los certificados desde disco usando el passphrase.
- * Fallback a variables de entorno para desarrollo local puro.
+ * Función que desencripta certificados mapeados estáticamente desde JS modules.
+ * Esto garantiza que ESBuild de Netlify los incluya sin perderse en el file system.
  */
 export function getCreds() {
   const cuit = process.env.ARCA_CUIT;
@@ -31,42 +31,12 @@ export function getCreds() {
 
   try {
     if (!passphrase) {
-      throw new Error('No se definió ARCA_PASSPHRASE en el entorno');
+      throw new Error('No se definió ARCA_PASSPHRASE en el entorno. Imposible desencriptar certificados estáticos.');
     }
-    
-    // Rutas compatibles con AWS Lambda, Netlify Dev local, y diferentes bundlers
-    const basePaths = [
-      process.cwd(),
-      path.resolve(process.cwd(), 'netlify/functions/utils'),
-      path.resolve(process.env.LAMBDA_TASK_ROOT || '/var/task'),
-      path.resolve(process.env.LAMBDA_TASK_ROOT || '/var/task', 'netlify/functions/utils'),
-      '/var/task/netlify/functions/utils'
-    ];
-
-    let certPath, keyPath;
-    for (const bp of basePaths) {
-      const cp = path.resolve(bp, 'cert.enc');
-      const kp = path.resolve(bp, 'key.enc');
-      if (fs.existsSync(cp) && fs.existsSync(kp)) {
-        certPath = cp;
-        keyPath = kp;
-        break;
-      }
-    }
-
-    if (!certPath || !keyPath) {
-      throw new Error(`Archivos .enc no encontrados en disco. cwd: ${process.cwd()}. Lambda: ${process.env.LAMBDA_TASK_ROOT}`);
-    }
-    
-    const certEnc = fs.readFileSync(certPath, 'utf8');
-    const keyEnc = fs.readFileSync(keyPath, 'utf8');
     
     cert = decrypt(certEnc, passphrase);
     key = decrypt(keyEnc, passphrase);
-    // console.log("Certificados desencriptados correctamente desde disco");
   } catch (err) {
-    // Si falla (ej. estamos en local y ARCA_PASSPHRASE no está, o archivos no existen), 
-    // caemos de vuelta a las enormes env vars directamente.
     cert = process.env.ARCA_CERT;
     key = process.env.ARCA_KEY;
     

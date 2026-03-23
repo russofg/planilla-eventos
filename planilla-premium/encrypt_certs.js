@@ -58,12 +58,12 @@ if (!fs.existsSync(utilsDir)) {
   fs.mkdirSync(utilsDir, { recursive: true });
 }
 
-fs.writeFileSync(path.join(utilsDir, 'cert.enc'), certEnc, 'utf8');
-fs.writeFileSync(path.join(utilsDir, 'key.enc'), keyEnc, 'utf8');
+fs.writeFileSync(path.join(utilsDir, 'certData.js'), `export const certEnc = "${certEnc}";\n`, 'utf8');
+fs.writeFileSync(path.join(utilsDir, 'keyData.js'), `export const keyEnc = "${keyEnc}";\n`, 'utf8');
 
 console.log("==========================================");
 console.log("✅ Certificados encriptados exitosamente!");
-console.log("Se guardaron en netlify/functions/utils/cert.enc y key.enc");
+console.log("Se guardaron en netlify/functions/utils/certData.js y keyData.js");
 console.log("==========================================");
 console.log("🔑 TU NUEVA CONTRASEÑA ES:");
 console.log(passphrase);
