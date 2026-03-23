@@ -34,12 +34,29 @@ export function getCreds() {
       throw new Error('No se definió ARCA_PASSPHRASE en el entorno');
     }
     
-    // Ruta compatible con AWS Lambda y dev local
-    const baseDir = process.env.LAMBDA_TASK_ROOT || process.cwd();
-    // En local es process.cwd()/netlify/functions/utils/...
-    // En AWS es /var/task/...
-    const certPath = path.resolve(baseDir, 'netlify/functions/utils/cert.enc');
-    const keyPath = path.resolve(baseDir, 'netlify/functions/utils/key.enc');
+    // Rutas compatibles con AWS Lambda, Netlify Dev local, y diferentes bundlers
+    const basePaths = [
+      process.cwd(),
+      path.resolve(process.cwd(), 'netlify/functions/utils'),
+      path.resolve(process.env.LAMBDA_TASK_ROOT || '/var/task'),
+      path.resolve(process.env.LAMBDA_TASK_ROOT || '/var/task', 'netlify/functions/utils'),
+      '/var/task/netlify/functions/utils'
+    ];
+
+    let certPath, keyPath;
+    for (const bp of basePaths) {
+      const cp = path.resolve(bp, 'cert.enc');
+      const kp = path.resolve(bp, 'key.enc');
+      if (fs.existsSync(cp) && fs.existsSync(kp)) {
+        certPath = cp;
+        keyPath = kp;
+        break;
+      }
+    }
+
+    if (!certPath || !keyPath) {
+      throw new Error(`Archivos .enc no encontrados en disco. cwd: ${process.cwd()}. Lambda: ${process.env.LAMBDA_TASK_ROOT}`);
+    }
     
     const certEnc = fs.readFileSync(certPath, 'utf8');
     const keyEnc = fs.readFileSync(keyPath, 'utf8');
