@@ -197,14 +197,29 @@ export async function getAccessTicket(certPem, keyPem, isProduction = false, idT
   // Si llegamos acá, el ticket no existe o expiró. Pedir nuevo a AFIP (12 hrs)
   const ltr = generateLoginTicketRequest('wsfe');
   const cmsBase64 = signLoginTicketRequest(ltr, certPem, keyPem);
-  const { token, sign } = await callWSAA(cmsBase64, isProduction);
+  
+  let token, sign;
+  try {
+    const afipRes = await callWSAA(cmsBase64, isProduction);
+    token = afipRes.token;
+    sign = afipRes.sign;
+  } catch (afipError) {
+    if (afipError.message && afipError.message.includes('alreadyAuthenticated')) {
+      console.warn("Colisión en servidor distribuido: AFIP devolvió alreadyAuthenticated. Esperando 2000ms a que el otro contenedor guarde el caché en Firestore y reintentando lectura...");
+      // Esperar 2 segundos a que el otro container ganador guarde el ticket
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Reintentar recursivamente
+      return await getAccessTicket(certPem, keyPem, isProduction, idToken);
+    }
+    throw afipError;
+  }
 
   const expirationTime = Date.now() + 12 * 60 * 60 * 1000;
   cachedTicket = { token, sign, expiration: expirationTime };
 
-  // Guardar de vuelta en Firestore distribuido
+  // Guardar de vuelta en Firestore distribuido (si gana la carrera)
   try {
-    await fetch(firestoreUrl, {
+    const saveRes = await fetch(firestoreUrl, {
       method: 'PATCH',
       headers: { 
         'Authorization': `Bearer ${idToken}`,
@@ -218,6 +233,9 @@ export async function getAccessTicket(certPem, keyPem, isProduction = false, idT
         }
       })
     });
+    if (!saveRes.ok) {
+      console.error("Firestore Save Failed Status:", saveRes.status, await saveRes.text());
+    }
   } catch (err) {
     console.error("Error guardando nuevo cache en Firestore:", err.message);
   }
