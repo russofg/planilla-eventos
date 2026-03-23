@@ -1,10 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 function decrypt(text, password) {
   const textParts = text.split(':');
@@ -20,7 +16,7 @@ function decrypt(text, password) {
 
 /**
  * Lee y desencripta los certificados desde disco usando el passphrase.
- * Fallback a variables de entorno para desarrollo local puro si no se generó.
+ * Fallback a variables de entorno para desarrollo local puro.
  */
 export function getCreds() {
   const cuit = process.env.ARCA_CUIT;
@@ -34,13 +30,16 @@ export function getCreds() {
   let cert, key;
 
   try {
-    // Intentar leer y desencriptar desde disk (método seguro para Netlify Cloud)
     if (!passphrase) {
       throw new Error('No se definió ARCA_PASSPHRASE en el entorno');
     }
     
-    const certPath = path.resolve(__dirname, 'cert.enc');
-    const keyPath = path.resolve(__dirname, 'key.enc');
+    // Ruta compatible con AWS Lambda y dev local
+    const baseDir = process.env.LAMBDA_TASK_ROOT || process.cwd();
+    // En local es process.cwd()/netlify/functions/utils/...
+    // En AWS es /var/task/...
+    const certPath = path.resolve(baseDir, 'netlify/functions/utils/cert.enc');
+    const keyPath = path.resolve(baseDir, 'netlify/functions/utils/key.enc');
     
     const certEnc = fs.readFileSync(certPath, 'utf8');
     const keyEnc = fs.readFileSync(keyPath, 'utf8');
