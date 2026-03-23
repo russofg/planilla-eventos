@@ -6,21 +6,40 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Cargar .env manual para no depender del modulo dotenv en node puro
+// Cargar .env manual soportando multinlineas (ej: certificados PEM)
 const envPath = path.resolve(__dirname, '.env');
 if (fs.existsSync(envPath)) {
   const envFile = fs.readFileSync(envPath, 'utf8');
-  envFile.split('\n').forEach(line => {
-    const match = line.match(/^([^=]+)=(.*)$/);
-    if (match) {
-      let key = match[1].trim();
-      let val = match[2].trim();
-      if (val.startsWith('"') && val.endsWith('"')) {
-        val = val.slice(1, -1);
+  // Regex que busca "CLAVE=VALOR" o "CLAVE='VALOR_MULTILINEA'" o 'CLAVE="VALOR_MULTILINEA"'
+  const regex = /^\s*([\w.-]+)\s*=\s*(.*)?\s*$/gm;
+  let match;
+  while ((match = regex.exec(envFile)) !== null) {
+    let key = match[1];
+    let val = match[2] || '';
+    val = val.trim();
+    
+    // Check if it's a quoted multiline value starting with " or '
+    if (val.startsWith('"') || val.startsWith("'")) {
+      const quoteChar = val[0];
+      const startIndex = match.index + match[0].indexOf(val) + 1;
+      let endIndex = envFile.indexOf(quoteChar, startIndex);
+      
+      // Handle escaped quotes
+      while (endIndex !== -1 && envFile[endIndex - 1] === '\\') {
+          endIndex = envFile.indexOf(quoteChar, endIndex + 1);
       }
-      process.env[key] = val;
+      
+      if (endIndex !== -1) {
+          val = envFile.substring(startIndex, endIndex);
+          // Advance the regex index past this multiline value
+          regex.lastIndex = endIndex + 1;
+      } else {
+          // Fallback if missing closing quote
+          val = val.substring(1);
+      }
     }
-  });
+    process.env[key] = val;
+  }
 }
 
 const cert = process.env.ARCA_CERT;
