@@ -50,20 +50,50 @@ export default function Facturacion() {
   const handleDownloadPDF = async (factura) => {
     playTickSound();
     try {
-      const yearParsed = parseInt(factura.mesFacturado.split('-')[0]);
-      const monthParsed = parseInt(factura.mesFacturado.split('-')[1]) - 1;
+      // Parsear fecha guardada en Firestore (YYYY-MM-DD -> DD/MM/YYYY)
+      const dateParts = factura.fecha.split('-');
+      const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : factura.fecha;
 
       const dataParaPdf = {
-        ...factura,
-        año: yearParsed,
-        mes: monthParsed,
-        userPrefs: userPrefs,
-        // Map Firestore schema to what generateFacturaPdf expects
-        razonSocial: factura.razonSocialReceptor || factura.razonSocial || 'Consumidor Final',
-        domicilio: factura.domicilioReceptor || factura.domicilio || '',
-        condicionIva: factura.condicionIvaReceptor || factura.condicionIva || 'Consumidor Final',
-        docTipo: factura.docTipoReceptor || factura.docTipo || 99,
-        docNro: factura.docNroReceptor || factura.docNro || '0',
+        emisor: {
+          razonSocial: userPrefs?.razonSocial || "RUSSO FERNANDO GABRIEL",
+          domicilioComercial: userPrefs?.domicilio || "187 1152 Piso:1 Dpto:B - Bernal, Buenos Aires",
+          condicionIva: userPrefs?.condicionIva || "Responsable Monotributo",
+          cuit: userPrefs?.cuit || "23321738729",
+          ingresosBrutos: userPrefs?.ingresosBrutos || "23-32173872-9",
+          inicioActividades: userPrefs?.inicioActividades || "01/10/2009"
+        },
+        factura: {
+          ptoVenta: factura.puntoDeVenta || factura.ptoVenta || 4,
+          compNro: factura.nroComprobante,
+          fechaEmision: formattedDate,
+          periodoDesde: formattedDate,
+          periodoHasta: formattedDate,
+          fechaVtoPago: formattedDate
+        },
+        cliente: {
+          cuit: factura.docNroReceptor || factura.docNro || "00000000000",
+          razonSocial: factura.razonSocialReceptor || factura.razonSocial || "Consumidor Final",
+          condicionIva: factura.condicionIvaReceptor || factura.condicionIva || "Consumidor Final",
+          domicilio: factura.domicilioReceptor || factura.domicilio || ""
+        },
+        items: [
+          {
+            producto: factura.concepto || "Servicios",
+            cantidad: 1,
+            uMedida: "unidades",
+            precioUnit: factura.importeTotal,
+            subtotal: factura.importeTotal
+          }
+        ],
+        totales: {
+          subtotal: factura.importeTotal,
+          importeTotal: factura.importeTotal
+        },
+        afip: {
+          cae: factura.cae,
+          caeVto: factura.caeVencimiento
+        }
       };
 
       const pdfBase64 = await generateFacturaPdf(dataParaPdf);
