@@ -25,15 +25,18 @@ export default function Facturacion() {
     // Show user's invoices. If admin, could show all, but we stick to user's for privacy/safety
     const q = query(
       facturasRef,
-      where("userId", "==", currentUser.uid),
-      orderBy("creadoEn", "desc")
+      where("userId", "==", currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })).sort((a, b) => {
+        const timeA = a.creadoEn?.toMillis ? a.creadoEn.toMillis() : 0;
+        const timeB = b.creadoEn?.toMillis ? b.creadoEn.toMillis() : 0;
+        return timeB - timeA;
+      });
       setFacturas(docs);
       setLoading(false);
     }, (error) => {
