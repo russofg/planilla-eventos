@@ -1,6 +1,13 @@
 import { getAccessTicket } from './utils/wsaa.js';
 import { getUltimoComprobante } from './utils/wsfe.js';
 import { getCreds } from './utils/certs.js';
+import admin from 'firebase-admin';
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: 'planilla-evento',
+  });
+}
 
 /**
  * Netlify Function: ultimo-comprobante
@@ -11,6 +18,28 @@ export async function handler(event) {
     return {
       statusCode: 405,
       body: JSON.stringify({ error: 'Method not allowed' })
+    };
+  }
+
+  // 1. VERIFICACIÓN DE SEGURIDAD CRÍTICA
+  const authHeader = event.headers.authorization || event.headers.Authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return {
+      statusCode: 401,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: 'Unauthorized: Missing or invalid Bearer token' })
+    };
+  }
+
+  let decodedToken;
+  try {
+    const idToken = authHeader.split('Bearer ')[1];
+    decodedToken = await admin.auth().verifyIdToken(idToken);
+  } catch (err) {
+    return {
+      statusCode: 403,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: 'Forbidden: Invalid Firebase token' })
     };
   }
 

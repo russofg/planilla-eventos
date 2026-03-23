@@ -1,8 +1,25 @@
+import { getAuth } from 'firebase/auth';
+
 /**
  * ARCA Service — Calls Netlify Functions for AFIP billing
  */
 
 const FUNCTIONS_BASE = '/.netlify/functions';
+
+/**
+ * Helper interno para obtener el token del usuario actual
+ */
+async function getAuthHeaders() {
+  const auth = getAuth();
+  if (!auth.currentUser) {
+    throw new Error('Usuario no autenticado. Inicia sesión para interactuar con AFIP.');
+  }
+  const token = await auth.currentUser.getIdToken();
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+}
 
 /**
  * Crea una Factura C via ARCA
@@ -14,6 +31,7 @@ const FUNCTIONS_BASE = '/.netlify/functions';
  * @param {number} params.ptoVta - Punto de venta (opcional, usa env var si no se pasa)
  * @param {string} params.fechaDesde - YYYYMMDD período desde
  * @param {string} params.fechaHasta - YYYYMMDD período hasta
+ * @param {number} params.condicionIvaReceptor - ID de la condición de IVA del receptor (5 para CF)
  * @returns {Promise<object>} Resultado con CAE, nroComprobante, etc.
  */
 export async function crearFactura({
@@ -24,12 +42,12 @@ export async function crearFactura({
   ptoVta,
   fechaDesde,
   fechaHasta,
-  fechaVtoPago,
-  condicionIvaReceptor
+  condicionIvaReceptor = 5 // Por defecto a CF
 }) {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${FUNCTIONS_BASE}/crear-factura`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       importeTotal,
       docTipo,
@@ -38,36 +56,31 @@ export async function crearFactura({
       ptoVta,
       fechaDesde,
       fechaHasta,
-      fechaVtoPago,
-      condicionIvaReceptor
+      condicionIvaReceptorId: condicionIvaReceptor
     })
   });
 
   const data = await response.json();
-
-  if (!data.success) {
-    throw new Error(data.error || 'Error desconocido al crear factura');
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Error al comunicarse con AFIP');
   }
-
-  return data.data;
+  return data.data; // { cae, caeVencimiento, nroComprobante, puntoDeVenta, resultado }
 }
 
 /**
- * Consulta el último comprobante autorizado
- * @returns {Promise<object>} { ultimoComprobante, proximoComprobante, puntoDeVenta }
+ * Obtiene el último comprobante autorizado de Clase C (11)
+ * @returns {Promise<number>} numero del comprobante
  */
 export async function getUltimoComprobante() {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${FUNCTIONS_BASE}/ultimo-comprobante`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({})
+    method: 'GET',
+    headers
   });
-
+  
   const data = await response.json();
-
-  if (!data.success) {
-    throw new Error(data.error || 'Error al consultar último comprobante');
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Error al obtener último comprobante');
   }
-
-  return data.data;
+  return data.data; // { ultimoComprobante, proximoComprobante, puntoDeVenta }
 }
