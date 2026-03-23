@@ -8,6 +8,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"))
 const CalendarView = lazy(() => import("./pages/CalendarView"))
 const Events = lazy(() => import("./pages/Events"))
 const Expenses = lazy(() => import("./pages/Expenses"))
+const Facturacion = lazy(() => import("./pages/Facturacion"))
 const Settings = lazy(() => import("./pages/Settings"))
 const Admin = lazy(() => import("./pages/Admin"))
 
@@ -103,6 +104,7 @@ function App() {
               <Route path="calendar" element={<CalendarView />} />
               <Route path="events" element={<Events />} />
               <Route path="expenses" element={<Expenses />} />
+              <Route path="facturacion" element={<Facturacion />} />
               <Route path="settings" element={<Settings />} />
               <Route path="admin" element={<Admin />} />
             </Route>

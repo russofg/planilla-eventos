@@ -13,7 +13,8 @@ import {
   ChevronRight,
   ShieldAlert,
   MessageSquare,
-  Check
+  Check,
+  FileText
 } from "lucide-react"
 import { useAuth } from "../../contexts/AuthContext"
 import { useFirestore } from "../../hooks/useFirestore"
@@ -47,6 +48,7 @@ export default function Layout() {
     { icon: CalendarDays, label: "Eventos", href: "/events" },
     { icon: Calendar, label: "Calendario", href: "/calendar" },
     { icon: Receipt, label: "Gastos", href: "/expenses" },
+    { icon: FileText, label: "Facturación", href: "/facturacion" },
     { icon: Settings, label: "Ajustes", href: "/settings" },
   ]
 

@@ -13,7 +13,6 @@ import { Plus, Search, Calendar as CalendarIcon, Filter, Download, Wallet, FileT
 import { EventModal } from "../components/events/EventModal"
 import { ExpenseModal } from "../components/expenses/ExpenseModal"
 import { ExtraModal } from "../components/extras/ExtraModal"
-import { FacturacionModal } from "../components/facturacion/FacturacionModal"
 import { SwipeableItem } from "../components/ui/SwipeableItem"
 import { calcularPagoEvento } from "../utils/calculations"
 import { generatePdf } from "../utils/generatePdf"
@@ -37,7 +36,7 @@ export default function Dashboard() {
   const [selectedEventToEdit, setSelectedEventToEdit] = useState(null);
   const [selectedExpenseToEdit, setSelectedExpenseToEdit] = useState(null);
   const [selectedExtraToEdit, setSelectedExtraToEdit] = useState(null);
-  const [isFacturacionOpen, setIsFacturacionOpen] = useState(false);
+
 
   // Filters
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth().toString());
@@ -644,14 +643,6 @@ export default function Dashboard() {
                <Download className="w-4 h-4" />
                <span className="hidden sm:inline">Exportar PDF</span>
             </button>
-            <button 
-              onClick={() => { playTickSound(); setIsFacturacionOpen(true); }}
-              className="flex items-center gap-2 bg-blue-600/90 hover:bg-blue-500 text-white px-4 py-2 text-sm font-medium rounded-lg border border-blue-500/30 transition-colors shrink-0 shadow-lg shadow-blue-500/20"
-              title="Emitir Factura C en ARCA"
-            >
-               <FileText className="w-4 h-4" />
-               <span className="hidden sm:inline">Facturar</span>
-            </button>
          </div>
       </div>
 
@@ -882,15 +873,7 @@ export default function Dashboard() {
           extraToEdit={selectedExtraToEdit}
         />
       )}
-      {isFacturacionOpen && (
-        <FacturacionModal
-          isOpen={isFacturacionOpen}
-          onClose={() => setIsFacturacionOpen(false)}
-          monthTotal={monthTotalFinal}
-          filterMonth={filterMonth}
-          filterYear={filterYear}
-        />
-      )}
+
     </div>
   )
 }
