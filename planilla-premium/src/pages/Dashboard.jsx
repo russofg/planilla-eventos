@@ -27,7 +27,7 @@ gsap.registerPlugin(useGSAP)
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
-  const { events, expenses, extras, loading, error, retry, userPrefs, sueldoFijo, tarifasGlobales, totalBonos, totalAdelantos } = useFirestore();
+  const { events, expenses, extras, loading, error, retry, userPrefs, sueldoFijo, tarifasGlobales } = useFirestore();
   const container = useRef();
   
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -193,27 +193,16 @@ export default function Dashboard() {
 
     const pTotalFinal = sueldoFijo + pTotalEvents + pTotalExpenses + pBonos + pAguinaldo - pAdelantos;
 
-    const calculateGrowth = (current, prev) => {
-      if (prev === 0) return current > 0 ? 100 : 0;
-      return ((current - prev) / Math.abs(prev)) * 100;
-    };
-
-    return { 
-      totalFinal: pTotalFinal, 
+    // Growth (MoM) is computed once in statsWithGrowth, which consumes these totals.
+    return {
+      totalFinal: pTotalFinal,
       eventsCount: pEvents.length,
       totalEvents: pTotalEvents,
       totalExpenses: pTotalExpenses,
       totalBonos: pBonos,
       totalAdelantos: pAdelantos,
-      growths: {
-        final: calculateGrowth(monthTotalFinal, pTotalFinal),
-        events: calculateGrowth(monthTotalEvents, pTotalEvents),
-        expenses: calculateGrowth(monthTotalExpenses, pTotalExpenses),
-        bonos: calculateGrowth(pBonos, pBonos), // This seems redundant if pBonos is used twice, should be monthTotalBonos
-        adelantos: calculateGrowth(pAdelantos, pAdelantos)
-      }
     };
-  }, [events, expenses, extras, filterMonth, filterYear, filterText, sueldoFijo, monthTotalFinal, monthTotalEvents, monthTotalExpenses, monthTotalBonos, monthTotalAdelantos, tarifasGlobales]);
+  }, [events, expenses, extras, filterMonth, filterYear, filterText, sueldoFijo, tarifasGlobales]);
 
   // Fix growth calculation Redundancy and add Chart Data
   const statsWithGrowth = useMemo(() => {
