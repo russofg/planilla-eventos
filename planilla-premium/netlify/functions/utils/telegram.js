@@ -63,3 +63,17 @@ export async function sendChatAction(chatId, action = 'typing') {
     body: JSON.stringify({ chat_id: chatId, action }),
   }).catch(() => {});
 }
+
+/** Downloads a Telegram file (e.g. a voice note) and returns it as a Buffer. */
+export async function downloadTelegramFile(fileId) {
+  const infoRes = await fetch(
+    `${TELEGRAM_API}/bot${botToken()}/getFile?file_id=${encodeURIComponent(fileId)}`
+  );
+  const info = await infoRes.json();
+  if (!info.ok || !info.result?.file_path) {
+    throw new Error('No pude obtener el archivo de Telegram');
+  }
+  const fileRes = await fetch(`${TELEGRAM_API}/file/bot${botToken()}/${info.result.file_path}`);
+  if (!fileRes.ok) throw new Error(`Descarga de audio falló: ${fileRes.status}`);
+  return Buffer.from(await fileRes.arrayBuffer());
+}

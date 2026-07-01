@@ -5,8 +5,10 @@ import {
   editMessageText,
   answerCallbackQuery,
   sendChatAction,
+  downloadTelegramFile,
 } from './utils/telegram.js';
 import { interpretMessage } from './utils/openrouter.js';
+import { transcribeAudio } from './utils/groq.js';
 
 /**
  * Netlify Function: telegram-webhook
@@ -70,8 +72,17 @@ export async function handler(event) {
       );
       return { statusCode: 200, body: 'ok' };
     }
+    const userId = linkSnap.data().userId;
 
-    await handleUserText(chatId, text, linkSnap.data().userId);
+    // Voice notes (and uploaded audio) go through transcription first.
+    const voice = message.voice || message.audio;
+    if (voice) {
+      await handleVoice(chatId, voice, userId);
+      return { statusCode: 200, body: 'ok' };
+    }
+
+    if (!text) return { statusCode: 200, body: 'ok' };
+    await handleUserText(chatId, text, userId);
     return { statusCode: 200, body: 'ok' };
   } catch (err) {
     console.error('telegram-webhook error:', err);
@@ -120,6 +131,31 @@ async function handleLink(chatId, code, from) {
       '• <b>Editar</b>: <i>"al amcham del 1 cambiale la salida a las 21"</i>\n' +
       '• <b>Borrar</b>: <i>"borrá el último"</i>'
   );
+}
+
+/* -------------------------------- Voice --------------------------------- */
+
+async function handleVoice(chatId, voice, userId) {
+  await sendChatAction(chatId, 'typing');
+
+  let transcript;
+  try {
+    const buffer = await downloadTelegramFile(voice.file_id);
+    transcript = await transcribeAudio(buffer);
+  } catch (err) {
+    console.error('voice transcription error:', err);
+    await sendMessage(chatId, 'No pude transcribir el audio 😕. Probá de nuevo o escribime el evento por texto.');
+    return;
+  }
+
+  if (!transcript) {
+    await sendMessage(chatId, 'No se entendió el audio 🤔. Probá de nuevo hablando claro.');
+    return;
+  }
+
+  // Echo the transcript so a mis-hearing is visible before anything is applied.
+  await sendMessage(chatId, `🎤 Escuché: <i>"${transcript}"</i>`);
+  await handleUserText(chatId, transcript, userId);
 }
 
 /* ---------------------------- Intent routing ---------------------------- */
