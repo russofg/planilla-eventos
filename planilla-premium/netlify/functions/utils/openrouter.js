@@ -1,5 +1,5 @@
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL = 'google/gemini-2.0-flash-lite-001';
+const DEFAULT_MODEL = 'google/gemini-2.5-flash-lite';
 const TIMEZONE = 'America/Argentina/Buenos_Aires';
 
 /** Current date in Argentina, so the model can resolve "hoy"/"mañana"/etc. */
