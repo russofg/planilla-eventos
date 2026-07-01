@@ -19,11 +19,17 @@ export function argentinaNow() {
 }
 
 /**
- * Sends the user's free-text message to the LLM and returns a structured event.
- * The model resolves relative dates against "today" (passed in) and never
- * invents data — it flags understood=false when the name or hours are missing.
+ * Interprets a free-text message: first classifies the intent (create / delete
+ * / edit), then extracts the fields relevant to that intent. Relative dates are
+ * resolved against today's Argentina date. The model never invents data.
+ *
+ * Returns an object like:
+ *   { action: "crear", evento, fecha, horaEntrada, horaSalida, operacion, feriado }
+ *   { action: "borrar", evento?, fecha?, horaEntrada? }
+ *   { action: "editar", ... }   (identification fields; handled later)
+ *   { action: "desconocido" }
  */
-export async function extractEvent(userText) {
+export async function interpretMessage(userText) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY env var is not set');
   const model = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
@@ -31,18 +37,28 @@ export async function extractEvent(userText) {
   const { todayIso, weekday } = argentinaNow();
 
   const system =
-    `Sos un extractor de datos para una planilla de trabajo de eventos.\n` +
+    `Sos el asistente de una planilla de trabajo de eventos.\n` +
     `Hoy es ${todayIso} (${weekday}), zona horaria ${TIMEZONE}.\n` +
-    `Del mensaje del usuario extraé UN evento y devolvé SOLO un objeto JSON con estas claves exactas:\n` +
-    `- "understood": boolean — true solo si identificás nombre del evento Y hora de entrada Y hora de salida.\n` +
-    `- "evento": string — nombre del evento o lugar.\n` +
-    `- "fecha": string "YYYY-MM-DD" — resolvé "hoy", "mañana", "ayer" o días de la semana según la fecha de hoy.\n` +
-    `- "horaEntrada": string "HH:MM" en formato 24hs.\n` +
-    `- "horaSalida": string "HH:MM" en formato 24hs.\n` +
-    `- "operacion": boolean — true si menciona "operación", "operacion" o "con oper".\n` +
-    `- "feriado": boolean — true si menciona que es feriado.\n` +
-    `Si falta el nombre o algún horario, devolvé {"understood": false}.\n` +
-    `No inventes datos ni agregues texto fuera del JSON.`;
+    `Interpretá el mensaje del usuario (lenguaje coloquial argentino) y devolvé SOLO un objeto JSON.\n\n` +
+    `Primero decidí "action":\n` +
+    `- "crear": quiere agregar/cargar un evento nuevo.\n` +
+    `- "borrar": quiere eliminar/borrar un evento existente.\n` +
+    `- "editar": quiere modificar/cambiar un evento existente.\n` +
+    `- "desconocido": no queda claro o falta información.\n\n` +
+    `Si action = "crear", agregá:\n` +
+    `- "evento": string (nombre o lugar del evento)\n` +
+    `- "fecha": "YYYY-MM-DD" (resolvé "hoy", "mañana", "ayer" o días de la semana)\n` +
+    `- "horaEntrada": "HH:MM" 24hs\n` +
+    `- "horaSalida": "HH:MM" 24hs\n` +
+    `- "operacion": boolean (true si menciona operación)\n` +
+    `- "feriado": boolean\n` +
+    `Si para crear falta el nombre o algún horario, usá action "desconocido".\n\n` +
+    `Si action = "borrar" o "editar", agregá los datos que sirvan para identificar el evento ` +
+    `(al menos uno de estos, todos opcionales):\n` +
+    `- "evento": string (nombre o parte del nombre)\n` +
+    `- "fecha": "YYYY-MM-DD"\n` +
+    `- "horaEntrada": "HH:MM"\n\n` +
+    `No inventes datos. Respondé SOLO el JSON, sin texto extra.`;
 
   const res = await fetch(OPENROUTER_URL, {
     method: 'POST',
@@ -74,7 +90,6 @@ export async function extractEvent(userText) {
   try {
     return JSON.parse(content);
   } catch {
-    // Some models wrap the JSON in markdown fences; strip and retry once.
     const cleaned = content.replace(/```json|```/g, '').trim();
     return JSON.parse(cleaned);
   }
