@@ -19,15 +19,9 @@ export function argentinaNow() {
 }
 
 /**
- * Interprets a free-text message: first classifies the intent (create / delete
- * / edit), then extracts the fields relevant to that intent. Relative dates are
- * resolved against today's Argentina date. The model never invents data.
- *
- * Returns an object like:
- *   { action: "crear", evento, fecha, horaEntrada, horaSalida, operacion, feriado }
- *   { action: "borrar", evento?, fecha?, horaEntrada? }
- *   { action: "editar", ... }   (identification fields; handled later)
- *   { action: "desconocido" }
+ * Interprets a free-text message: classifies the action (crear/borrar/editar)
+ * and the entity (evento/gasto/bono/aguinaldo/adelanto), then extracts the
+ * relevant fields. Relative dates resolve against today's Argentina date.
  */
 export async function interpretMessage(userText) {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -37,40 +31,32 @@ export async function interpretMessage(userText) {
   const { todayIso, weekday } = argentinaNow();
 
   const system =
-    `Sos el asistente de una planilla de trabajo de eventos.\n` +
-    `Hoy es ${todayIso} (${weekday}), zona horaria ${TIMEZONE}.\n` +
-    `Interpretá el mensaje del usuario (lenguaje coloquial argentino) y devolvé SOLO un objeto JSON.\n\n` +
-    `Primero decidí "action":\n` +
-    `- "crear": quiere agregar/cargar un evento nuevo.\n` +
-    `- "borrar": quiere eliminar/borrar un evento existente.\n` +
-    `- "editar": quiere modificar/cambiar un evento existente.\n` +
-    `- "desconocido": no queda claro o falta información.\n\n` +
-    `Si action = "crear", agregá:\n` +
-    `- "evento": string (nombre o lugar del evento)\n` +
-    `- "fecha": "YYYY-MM-DD" (resolvé "hoy", "mañana", "ayer" o días de la semana)\n` +
+    `Sos el asistente de una planilla de trabajo. Hoy es ${todayIso} (${weekday}), ` +
+    `zona horaria ${TIMEZONE}. Interpretá el mensaje (español coloquial argentino) y devolvé SOLO un JSON.\n\n` +
+    `"action": "crear" | "borrar" | "editar" | "desconocido".\n` +
+    `"entidad": "evento" | "gasto" | "bono" | "aguinaldo" | "adelanto".\n` +
+    `  - evento: un turno de trabajo (tiene horarios de entrada y salida).\n` +
+    `  - gasto: dinero gastado (ej. comida, viáticos).\n` +
+    `  - bono / aguinaldo / adelanto: movimientos de dinero de ese tipo.\n\n` +
+    `Si action="crear" y entidad="evento", agregá:\n` +
+    `- "evento": string (nombre/lugar)\n` +
+    `- "fecha": "YYYY-MM-DD" (resolvé hoy/mañana/ayer/días de la semana)\n` +
     `- "horaEntrada": "HH:MM" 24hs\n` +
     `- "horaSalida": "HH:MM" 24hs\n` +
-    `- "operacion": boolean (true si menciona operación)\n` +
-    `- "feriado": boolean\n` +
-    `Si para crear falta el nombre o algún horario, usá action "desconocido".\n\n` +
-    `Si action = "borrar" o "editar", agregá los datos que IDENTIFICAN el evento ` +
-    `(al menos uno de estos, todos opcionales):\n` +
-    `- "evento": string (nombre o parte del nombre)\n` +
-    `- "fecha": "YYYY-MM-DD"\n` +
-    `- "horaEntrada": "HH:MM"\n` +
-    `- "referencia": "reciente" si el usuario se refiere al último evento cargado sin nombrarlo ` +
-    `("el de recién", "el último", "el que acabo de cargar").\n\n` +
-    `Además, si action = "editar", agregá "cambios": un objeto con SOLO los campos a modificar, ` +
-    `con los valores NUEVOS:\n` +
-    `- "evento": string\n` +
-    `- "fecha": "YYYY-MM-DD"\n` +
-    `- "horaEntrada": "HH:MM"\n` +
-    `- "horaSalida": "HH:MM"\n` +
     `- "operacion": boolean\n` +
     `- "feriado": boolean\n` +
-    `IMPORTANTE: en los campos de identificación va el valor ACTUAL; en "cambios" va el valor NUEVO. ` +
-    `Ejemplo: "al amcham del 1 cambiale la salida a las 21" → ` +
-    `{"action":"editar","evento":"amcham","fecha":"2026-07-01","cambios":{"horaSalida":"21:00"}}.\n\n` +
+    `Si falta el nombre o algún horario → action "desconocido".\n\n` +
+    `Si action="crear" y entidad es gasto/bono/aguinaldo/adelanto, agregá:\n` +
+    `- "descripcion": string (si no hay, poné un nombre corto acorde, ej. "Adelanto")\n` +
+    `- "fecha": "YYYY-MM-DD"\n` +
+    `- "monto": number en pesos ("65 mil" = 65000, "1,5 millones"/"1.5 palo" = 1500000)\n` +
+    `Si falta el monto → action "desconocido".\n\n` +
+    `Si action="borrar" o "editar", agregá lo que identifique el registro (al menos uno):\n` +
+    `- para eventos "evento"; para dinero "descripcion" (nombre o parte del nombre)\n` +
+    `- "fecha": "YYYY-MM-DD"\n` +
+    `- "referencia": "reciente" si dice "el último"/"el de recién" sin nombrarlo\n` +
+    `Y si action="editar", agregá "cambios": un objeto con SOLO los campos nuevos ` +
+    `(mismos nombres que en crear según la entidad: para dinero pueden ser descripcion/fecha/monto).\n\n` +
     `No inventes datos. Respondé SOLO el JSON, sin texto extra.`;
 
   const res = await fetch(OPENROUTER_URL, {
