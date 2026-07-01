@@ -144,7 +144,11 @@ async function handleVoice(chatId, voice, userId) {
     transcript = await transcribeAudio(buffer);
   } catch (err) {
     console.error('voice transcription error:', err);
-    await sendMessage(chatId, 'No pude transcribir el audio 😕. Probá de nuevo o escribime el evento por texto.');
+    // TEMP debug: surface the real error so we can diagnose, then revert.
+    await sendMessage(
+      chatId,
+      'No pude transcribir el audio 😕.\n<code>' + String(err?.message || err).slice(0, 350) + '</code>'
+    );
     return;
   }
 
