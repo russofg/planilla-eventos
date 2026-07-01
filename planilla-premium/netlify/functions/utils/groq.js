@@ -6,7 +6,9 @@ const DEFAULT_MODEL = 'whisper-large-v3-turbo';
  * Whisper accepts directly) to Spanish text via Groq's OpenAI-compatible
  * transcription endpoint.
  */
-export async function transcribeAudio(buffer, filename = 'audio.oga') {
+// Groq validates the audio by file extension; Telegram voice notes are .oga
+// (OGG/Opus), which Groq rejects, so we present the file as .ogg.
+export async function transcribeAudio(buffer, filename = 'audio.ogg') {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY env var is not set');
   const model = process.env.GROQ_MODEL || DEFAULT_MODEL;
