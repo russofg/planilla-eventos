@@ -53,13 +53,24 @@ export async function interpretMessage(userText) {
     `- "operacion": boolean (true si menciona operación)\n` +
     `- "feriado": boolean\n` +
     `Si para crear falta el nombre o algún horario, usá action "desconocido".\n\n` +
-    `Si action = "borrar" o "editar", agregá los datos que sirvan para identificar el evento ` +
+    `Si action = "borrar" o "editar", agregá los datos que IDENTIFICAN el evento ` +
     `(al menos uno de estos, todos opcionales):\n` +
     `- "evento": string (nombre o parte del nombre)\n` +
     `- "fecha": "YYYY-MM-DD"\n` +
     `- "horaEntrada": "HH:MM"\n` +
     `- "referencia": "reciente" si el usuario se refiere al último evento cargado sin nombrarlo ` +
     `("el de recién", "el último", "el que acabo de cargar").\n\n` +
+    `Además, si action = "editar", agregá "cambios": un objeto con SOLO los campos a modificar, ` +
+    `con los valores NUEVOS:\n` +
+    `- "evento": string\n` +
+    `- "fecha": "YYYY-MM-DD"\n` +
+    `- "horaEntrada": "HH:MM"\n` +
+    `- "horaSalida": "HH:MM"\n` +
+    `- "operacion": boolean\n` +
+    `- "feriado": boolean\n` +
+    `IMPORTANTE: en los campos de identificación va el valor ACTUAL; en "cambios" va el valor NUEVO. ` +
+    `Ejemplo: "al amcham del 1 cambiale la salida a las 21" → ` +
+    `{"action":"editar","evento":"amcham","fecha":"2026-07-01","cambios":{"horaSalida":"21:00"}}.\n\n` +
     `No inventes datos. Respondé SOLO el JSON, sin texto extra.`;
 
   const res = await fetch(OPENROUTER_URL, {
