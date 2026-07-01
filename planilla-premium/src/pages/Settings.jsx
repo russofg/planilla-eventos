@@ -4,9 +4,10 @@ import { doc, setDoc } from "firebase/firestore"
 import { db } from "../lib/firebase"
 import { COLLECTIONS } from "../hooks/useFirestore"
 import { useAuth } from "../contexts/AuthContext"
-import { Moon, Save, User, Camera, Upload } from "lucide-react"
+import { Moon, Save, User, Camera, Upload, Send, Link2, Copy, Check } from "lucide-react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
+import { generateTelegramLinkCode } from "../services/telegramService"
 
 gsap.registerPlugin(useGSAP)
 
@@ -27,7 +28,38 @@ export default function Settings() {
   const [successMsg, setSuccessMsg] = useState("")
   const fileInputRef = useRef(null)
 
+  const [telegramCode, setTelegramCode] = useState("")
+  const [telegramBot, setTelegramBot] = useState("")
+  const [telegramLoading, setTelegramLoading] = useState(false)
+  const [telegramError, setTelegramError] = useState("")
+  const [telegramCopied, setTelegramCopied] = useState(false)
+
   const container = useRef()
+
+  const handleGenerateTelegramCode = async () => {
+    setTelegramLoading(true)
+    setTelegramError("")
+    setTelegramCopied(false)
+    try {
+      const { code, botUsername } = await generateTelegramLinkCode()
+      setTelegramCode(code)
+      setTelegramBot(botUsername || "")
+    } catch (err) {
+      setTelegramError(err.message || "No se pudo generar el código.")
+    } finally {
+      setTelegramLoading(false)
+    }
+  }
+
+  const handleCopyTelegramCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(`/start ${telegramCode}`)
+      setTelegramCopied(true)
+      setTimeout(() => setTelegramCopied(false), 2000)
+    } catch {
+      // Clipboard may be unavailable (insecure context); ignore silently.
+    }
+  }
 
   useEffect(() => {
     if (!firestoreLoading) {
@@ -337,6 +369,62 @@ export default function Settings() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Telegram Link Block */}
+      <div className="settings-panel glass-card rounded-2xl p-6 max-w-2xl">
+        <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
+          <Send className="w-5 h-5 text-sky-400" />
+          Vincular Telegram
+        </h2>
+        <p className="text-sm text-gray-400 mb-5">
+          Conectá tu Telegram para cargar eventos por mensaje. Generá un código y enviáselo al bot.
+        </p>
+
+        {telegramError && (
+          <div className="mb-4 bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-xl text-sm">
+            {telegramError}
+          </div>
+        )}
+
+        {telegramCode ? (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+              <p className="text-xs text-gray-400 mb-2">
+                Abrí el chat con el bot{telegramBot ? <> (<span className="text-sky-400">@{telegramBot}</span>)</> : ""} y enviá:
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-lg font-mono text-white bg-black/50 border border-white/10 rounded-lg px-4 py-3 tracking-widest">
+                  /start {telegramCode}
+                </code>
+                <button
+                  onClick={handleCopyTelegramCommand}
+                  className="shrink-0 p-3 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 transition-colors"
+                  title="Copiar"
+                >
+                  {telegramCopied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">El código vence en 10 minutos y es de un solo uso.</p>
+            </div>
+            <button
+              onClick={handleGenerateTelegramCode}
+              disabled={telegramLoading}
+              className="text-sm text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+            >
+              Generar otro código
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleGenerateTelegramCode}
+            disabled={telegramLoading}
+            className="flex items-center gap-2 px-5 py-2.5 bg-sky-500 hover:bg-sky-600 rounded-xl text-white font-medium transition-colors disabled:opacity-50 shadow-lg shadow-sky-500/25"
+          >
+            <Link2 className="w-5 h-5" />
+            {telegramLoading ? "Generando..." : "Generar código de vinculación"}
+          </button>
+        )}
       </div>
     </div>
   )
