@@ -57,7 +57,9 @@ export async function interpretMessage(userText) {
     `(al menos uno de estos, todos opcionales):\n` +
     `- "evento": string (nombre o parte del nombre)\n` +
     `- "fecha": "YYYY-MM-DD"\n` +
-    `- "horaEntrada": "HH:MM"\n\n` +
+    `- "horaEntrada": "HH:MM"\n` +
+    `- "referencia": "reciente" si el usuario se refiere al último evento cargado sin nombrarlo ` +
+    `("el de recién", "el último", "el que acabo de cargar").\n\n` +
     `No inventes datos. Respondé SOLO el JSON, sin texto extra.`;
 
   const res = await fetch(OPENROUTER_URL, {

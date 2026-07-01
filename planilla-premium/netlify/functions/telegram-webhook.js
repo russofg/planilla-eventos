@@ -237,11 +237,13 @@ async function handleDelete(chatId, userId, intent) {
   const fecha = isDate(intent.fecha) ? intent.fecha : null;
   const nameFilter = typeof intent.evento === 'string' ? intent.evento.trim().toLowerCase() : '';
   const horaFilter = isTime(intent.horaEntrada) ? intent.horaEntrada : null;
+  const reciente = intent.referencia === 'reciente' || intent.referencia === 'ultimo';
 
-  if (!fecha && !nameFilter) {
+  if (!fecha && !nameFilter && !reciente) {
     await sendMessage(
       chatId,
-      'Decime qué evento borrar con la fecha o el nombre, ej: <i>"borrá el amcham del 1 de julio"</i>.'
+      'Decime qué evento borrar con la fecha, el nombre, o pedime "el último", ej: ' +
+        '<i>"borrá el amcham del 1 de julio"</i> o <i>"borrá el último"</i>.'
     );
     return;
   }
@@ -252,6 +254,12 @@ async function handleDelete(chatId, userId, intent) {
   if (fecha) candidates = candidates.filter((e) => e.fecha === fecha);
   if (nameFilter) candidates = candidates.filter((e) => (e.evento || '').toLowerCase().includes(nameFilter));
   if (horaFilter) candidates = candidates.filter((e) => e.horaEntrada === horaFilter);
+
+  // "el último" / "el de recién": narrow to the most recently created event.
+  if (reciente) {
+    candidates.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    candidates = candidates.slice(0, 1);
+  }
 
   if (candidates.length === 0) {
     await sendMessage(chatId, 'No encontré ningún evento con esos datos. Revisá la fecha o el nombre.');
