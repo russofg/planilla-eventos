@@ -24,3 +24,42 @@ export async function sendMessage(chatId, text, extra = {}) {
   });
   return res.json();
 }
+
+/** Replaces the text (and buttons) of a message already sent by the bot. */
+export async function editMessageText(chatId, messageId, text, extra = {}) {
+  const res = await fetch(`${TELEGRAM_API}/bot${botToken()}/editMessageText`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+      ...extra,
+    }),
+  });
+  return res.json();
+}
+
+/** Acknowledges an inline-button tap so Telegram stops the loading spinner. */
+export async function answerCallbackQuery(callbackQueryId, text) {
+  const res = await fetch(`${TELEGRAM_API}/bot${botToken()}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      callback_query_id: callbackQueryId,
+      ...(text ? { text } : {}),
+    }),
+  });
+  return res.json();
+}
+
+/** Shows the "typing…" indicator while the AI extraction runs. */
+export async function sendChatAction(chatId, action = 'typing') {
+  await fetch(`${TELEGRAM_API}/bot${botToken()}/sendChatAction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, action }),
+  }).catch(() => {});
+}
