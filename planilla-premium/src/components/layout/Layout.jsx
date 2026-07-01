@@ -18,11 +18,17 @@ import {
 } from "lucide-react"
 import { useAuth } from "../../contexts/AuthContext"
 import { useFirestore } from "../../hooks/useFirestore"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, lazy, Suspense } from "react"
 import { cn } from "../../utils/cn"
 import { subscribeToNotifications, markNotificationAsRead } from "../../services/pushService"
-import { ParticlesBackground } from "../ui/Particles"
 import { playTickSound } from "../../utils/audio"
+
+// Lazy-load the Three.js particle background so the heavy WebGL bundle
+// (three / @react-three) stays out of the initial load and streams in after
+// the app is interactive. It's purely decorative, so no fallback is needed.
+const ParticlesBackground = lazy(() =>
+  import("../ui/Particles").then((m) => ({ default: m.ParticlesBackground }))
+)
 
 export default function Layout() {
   const { logout, currentUser } = useAuth()
@@ -30,7 +36,20 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768)
   const [notifications, setNotifications] = useState([])
   const [notifOpen, setNotifOpen] = useState(false)
+  // Defer mounting the decorative particle background until the browser is
+  // idle, so the initial paint and Firebase data load get full priority and
+  // the heavy WebGL chunk isn't even fetched until then.
+  const [showParticles, setShowParticles] = useState(false)
   const location = useLocation()
+
+  useEffect(() => {
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(() => setShowParticles(true), { timeout: 2500 })
+      return () => window.cancelIdleCallback?.(id)
+    }
+    const id = setTimeout(() => setShowParticles(true), 1500)
+    return () => clearTimeout(id)
+  }, [])
 
   useEffect(() => {
     if (currentUser?.uid) {
@@ -86,8 +105,12 @@ export default function Layout() {
   return (
     <div className="flex h-screen w-full bg-[#0a0a0a] text-white overflow-hidden selection:bg-blue-500/30 relative">
       
-      {/* 3D WebGL Premium Background */}
-      <ParticlesBackground />
+      {/* 3D WebGL Premium Background (lazy + idle-deferred, non-blocking) */}
+      {showParticles && (
+        <Suspense fallback={null}>
+          <ParticlesBackground />
+        </Suspense>
+      )}
 
       {/* Mobile Sidebar Overlay */}
       <div 
