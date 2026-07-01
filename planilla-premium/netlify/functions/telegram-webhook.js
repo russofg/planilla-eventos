@@ -87,7 +87,8 @@ export async function handler(event) {
     const chatId = update?.message?.chat?.id || update?.callback_query?.message?.chat?.id;
     if (chatId) {
       try {
-        await sendMessage(chatId, 'Ocurrió un error procesando tu mensaje. Probá de nuevo en un momento.');
+        // TEMP debug: surface the real error to diagnose, then revert.
+        await sendMessage(chatId, 'Error: <code>' + String(err?.stack || err?.message || err).slice(0, 500) + '</code>');
       } catch { /* ignore */ }
     }
     return { statusCode: 200, body: 'ok' };
