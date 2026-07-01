@@ -3,6 +3,8 @@ export const DEFAULT_TARIFA_COMUN = 2000;
 export const DEFAULT_TARIFA_FIN = 2500;
 export const DEFAULT_TARIFA_OPERACION = 5000;
 export const DEFAULT_TARIFA_HORA_EXTRA = 3000;
+// Flat amount paid for a weekend/holiday shift of 8 hours or less.
+export const DEFAULT_TARIFA_FIN_FIJO = 120000;
 
 export function calcularPagoEvento(
   fechaStr,
@@ -12,6 +14,7 @@ export function calcularPagoEvento(
   feriado = false,
   tarifas = {
     tarifaFin: DEFAULT_TARIFA_FIN,
+    tarifaFinFijo: DEFAULT_TARIFA_FIN_FIJO,
     tarifaHoraExtra: DEFAULT_TARIFA_HORA_EXTRA,
     tarifaOperacion: DEFAULT_TARIFA_OPERACION,
   }
@@ -58,11 +61,11 @@ export function calcularPagoEvento(
         }
     }
 
-    // Fin de semana / feriado: mínimo 8 h y total redondeado hacia arriba (ej. 12,5 h → 13 h)
+    // Fin de semana / feriado: horas redondeadas hacia arriba (ej. 12,5 h → 13 h)
     let horasFinDeSemanaOFeriado = minutosFinDeSemanaOFeriado / 60;
     horasFinDeSemanaOFeriado = Math.round(horasFinDeSemanaOFeriado * 100) / 100;
     if (horasFinDeSemanaOFeriado > 0) {
-        horasFinDeSemanaOFeriado = Math.ceil(Math.max(8, horasFinDeSemanaOFeriado));
+        horasFinDeSemanaOFeriado = Math.ceil(horasFinDeSemanaOFeriado);
     }
 
     // Día hábil: extras antes de 10 y después de 17, cada bloque redondeado hacia arriba por separado
@@ -77,7 +80,16 @@ export function calcularPagoEvento(
 
     horasAdentroSueldo = Math.round(horasAdentroSueldo * 100) / 100;
 
-    const pagoHorasFin = horasFinDeSemanaOFeriado * tarifas.tarifaFin;
+    // Fin de semana / feriado:
+    //  - 8 h o menos: monto fijo (tarifaFinFijo), sin importar cuántas horas exactas.
+    //  - más de 8 h: se paga por hora (tarifaFin × cantidad de horas).
+    const tarifaFinFijo = tarifas.tarifaFinFijo ?? DEFAULT_TARIFA_FIN_FIJO;
+    let pagoHorasFin = 0;
+    if (horasFinDeSemanaOFeriado > 0) {
+        pagoHorasFin = horasFinDeSemanaOFeriado <= 8
+            ? tarifaFinFijo
+            : horasFinDeSemanaOFeriado * tarifas.tarifaFin;
+    }
     const pagoHorasExtra = horasExtraHabiles * tarifas.tarifaHoraExtra;
     
     const horasExtraTotal = horasFinDeSemanaOFeriado + horasExtraHabiles;

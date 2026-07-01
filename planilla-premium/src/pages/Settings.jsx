@@ -19,6 +19,7 @@ export default function Settings() {
   const [localSueldo, setLocalSueldo] = useState("")
   
   const [localTarifaFin, setLocalTarifaFin] = useState("")
+  const [localTarifaFinFijo, setLocalTarifaFinFijo] = useState("")
   const [localTarifaOperacion, setLocalTarifaOperacion] = useState("")
   const [localTarifaHoraExtra, setLocalTarifaHoraExtra] = useState("")
 
@@ -35,6 +36,7 @@ export default function Settings() {
       setLocalSueldo(sueldoFijo.toString())
       if (tarifasGlobales) {
         setLocalTarifaFin(tarifasGlobales.tarifaFin?.toString() || "0")
+        setLocalTarifaFinFijo(tarifasGlobales.tarifaFinFijo?.toString() || "120000")
         setLocalTarifaOperacion(tarifasGlobales.tarifaOperacion?.toString() || "0")
         setLocalTarifaHoraExtra(tarifasGlobales.tarifaHoraExtra?.toString() || "0")
       }
@@ -110,10 +112,11 @@ export default function Settings() {
 
   const handleSaveTarifas = async () => {
     const tFin = parseFloat(localTarifaFin)
+    const tFinFijo = parseFloat(localTarifaFinFijo)
     const tOp = parseFloat(localTarifaOperacion)
     const tHE = parseFloat(localTarifaHoraExtra)
 
-    if (isNaN(tFin) || tFin < 0 || isNaN(tOp) || tOp < 0 || isNaN(tHE) || tHE < 0) {
+    if (isNaN(tFin) || tFin < 0 || isNaN(tFinFijo) || tFinFijo < 0 || isNaN(tOp) || tOp < 0 || isNaN(tHE) || tHE < 0) {
       alert("Todas las tarifas deben ser números positivos.")
       setIsSaving(false)
       return
@@ -123,6 +126,7 @@ export default function Settings() {
       const configDocRef = doc(db, COLLECTIONS.CONFIG, "tarifas")
       await setDoc(configDocRef, {
         tarifaFin: tFin,
+        tarifaFinFijo: tFinFijo,
         tarifaOperacion: tOp,
         tarifaHoraExtra: tHE,
         tarifaComun: tarifasGlobales?.tarifaComun || 11000 // preserve original unused var
@@ -260,16 +264,32 @@ export default function Settings() {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors gap-4">
             <div>
-              <p className="font-medium text-white mb-1">Horas Extra (Finde/Feriados)</p>
-              <p className="text-sm text-gray-400">Monto por cada hora en fin de semana o feriado.</p>
+              <p className="font-medium text-white mb-1">Fijo Fin de semana (hasta 8h)</p>
+              <p className="text-sm text-gray-400">Monto fijo para una jornada de finde/feriado de 8 horas o menos.</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-gray-500 font-medium">$</span>
-              <input 
-                type="number" 
+              <input
+                type="number"
+                value={localTarifaFinFijo}
+                onChange={(e) => setLocalTarifaFinFijo(e.target.value)}
+                className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-right text-white focus:outline-none focus:border-[var(--primary)] transition-colors w-32"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors gap-4">
+            <div>
+              <p className="font-medium text-white mb-1">Horas Extra (Finde/Feriados)</p>
+              <p className="text-sm text-gray-400">Monto por cada hora cuando la jornada supera las 8 horas.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 font-medium">$</span>
+              <input
+                type="number"
                 value={localTarifaFin}
                 onChange={(e) => setLocalTarifaFin(e.target.value)}
-                className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-right text-white focus:outline-none focus:border-[var(--primary)] transition-colors w-32" 
+                className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-right text-white focus:outline-none focus:border-[var(--primary)] transition-colors w-32"
               />
             </div>
           </div>

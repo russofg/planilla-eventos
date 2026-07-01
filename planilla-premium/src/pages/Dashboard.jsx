@@ -27,7 +27,7 @@ gsap.registerPlugin(useGSAP)
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
-  const { events, expenses, extras, loading, userPrefs, sueldoFijo, tarifasGlobales, totalBonos, totalAdelantos } = useFirestore();
+  const { events, expenses, extras, loading, error, retry, userPrefs, sueldoFijo, tarifasGlobales, totalBonos, totalAdelantos } = useFirestore();
   const container = useRef();
   
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -49,7 +49,7 @@ export default function Dashboard() {
   const [visibleExtras, setVisibleExtras] = useState(20);
 
   // Filtered Logic & Monthly Totals
-  const { filteredEvents, filteredExpenses, filteredExtras, monthTotalEvents, monthTotalExpenses, monthTotalBonos, monthTotalAdelantos, monthTotalFinal } = useMemo(() => {
+  const { filteredEvents, filteredExpenses, filteredExtras, monthTotalEvents, monthTotalExpenses, monthTotalBonos, monthTotalAguinaldo, monthTotalAdelantos, monthTotalFinal } = useMemo(() => {
     let tempEvents = events;
     let tempExpenses = expenses;
     let tempExtras = extras;
@@ -80,13 +80,15 @@ export default function Dashboard() {
     const tExpenses = tempExpenses.reduce((acc, curr) => acc + (curr.monto || 0), 0);
     
     let tBonos = 0;
+    let tAguinaldo = 0;
     let tAdelantos = 0;
     tempExtras.forEach(ext => {
       if (ext.tipo === 'bono') tBonos += (ext.monto || 0);
+      else if (ext.tipo === 'aguinaldo') tAguinaldo += (ext.monto || 0);
       else if (ext.tipo === 'adelanto') tAdelantos += (ext.monto || 0);
     });
 
-    const tFinal = sueldoFijo + tEvents + tExpenses + tBonos - tAdelantos;
+    const tFinal = sueldoFijo + tEvents + tExpenses + tBonos + tAguinaldo - tAdelantos;
 
     return {
       filteredEvents: tempEvents,
@@ -95,6 +97,7 @@ export default function Dashboard() {
       monthTotalEvents: tEvents,
       monthTotalExpenses: tExpenses,
       monthTotalBonos: tBonos,
+      monthTotalAguinaldo: tAguinaldo,
       monthTotalAdelantos: tAdelantos,
       monthTotalFinal: tFinal
     };
@@ -180,13 +183,15 @@ export default function Dashboard() {
     const pTotalExpenses = pExpenses.reduce((acc, curr) => acc + (curr.monto || 0), 0);
     
     let pBonos = 0;
+    let pAguinaldo = 0;
     let pAdelantos = 0;
     pExtras.forEach(ext => {
       if (ext.tipo === 'bono') pBonos += (ext.monto || 0);
+      else if (ext.tipo === 'aguinaldo') pAguinaldo += (ext.monto || 0);
       else if (ext.tipo === 'adelanto') pAdelantos += (ext.monto || 0);
     });
 
-    const pTotalFinal = sueldoFijo + pTotalEvents + pTotalExpenses + pBonos - pAdelantos;
+    const pTotalFinal = sueldoFijo + pTotalEvents + pTotalExpenses + pBonos + pAguinaldo - pAdelantos;
 
     const calculateGrowth = (current, prev) => {
       if (prev === 0) return current > 0 ? 100 : 0;
@@ -244,7 +249,7 @@ export default function Dashboard() {
 
       const dayExpenses = filteredExpenses.filter(e => e.fecha === dateKey).reduce((acc, curr) => acc + (curr.monto || 0), 0);
       const dayExtras = filteredExtras.filter(e => e.fecha === dateKey).reduce((acc, curr) => {
-        return acc + (curr.tipo === 'bono' ? curr.monto : -curr.monto);
+        return acc + (curr.tipo === 'adelanto' ? -curr.monto : curr.monto);
       }, 0);
 
       data.push({
@@ -258,11 +263,12 @@ export default function Dashboard() {
     const pData = [
       { name: 'Sueldo', value: sueldoFijo, color: '#3b82f6' },
       { name: 'Eventos', value: monthTotalEvents, color: '#10b981' },
-      { name: 'Bonos', value: monthTotalBonos, color: '#06b6d4' }
+      { name: 'Bonos', value: monthTotalBonos, color: '#06b6d4' },
+      { name: 'Aguinaldo', value: monthTotalAguinaldo, color: '#a855f7' }
     ].filter(d => d.value > 0);
 
     return { chartData: data, pieData: pData };
-  }, [filteredEvents, filteredExpenses, filteredExtras, filterMonth, filterYear, sueldoFijo, monthTotalEvents, monthTotalBonos, tarifasGlobales]);
+  }, [filteredEvents, filteredExpenses, filteredExtras, filterMonth, filterYear, sueldoFijo, monthTotalEvents, monthTotalBonos, monthTotalAguinaldo, tarifasGlobales]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-AR', { 
@@ -301,6 +307,7 @@ export default function Dashboard() {
       monthTotalEvents,
       monthTotalExpenses,
       monthTotalBonos,
+      monthTotalAguinaldo,
       monthTotalAdelantos,
       monthTotalFinal,
       filterMonth,
@@ -357,6 +364,17 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6" ref={container}>
+      {error && (
+        <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-300 text-sm">
+          <span>No se pudieron cargar todos los datos. Reintentando conexión…</span>
+          <button
+            onClick={retry}
+            className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 font-medium transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       <div className="flex flex-col mb-2 animate-item">
         <div className="flex items-center gap-3 mb-1">
            <p className="text-gray-400 font-medium text-sm sm:text-base">{greeting},</p>
@@ -417,6 +435,20 @@ export default function Dashboard() {
               </div>
               <p className="text-lg sm:text-xl font-bold text-emerald-400 break-all leading-tight">
                 <CountUp end={monthTotalBonos} formattingFn={(val) => `+${formatCurrency(val)}`} duration={1.5} />
+              </p>
+            </div>
+          </Tilt>
+        )}
+
+        {monthTotalAguinaldo > 0 && (
+          <Tilt tiltMaxAngleX={5} tiltMaxAngleY={5} glareEnable={true} glareMaxOpacity={0.1} glareColor="white" glarePosition="all" scale={1.02} transitionSpeed={2000} className="flex-1 min-w-[140px]">
+            <div className="glass-card rounded-xl p-4 relative overflow-hidden group h-full">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="flex justify-between items-start mb-1">
+                <h3 className="text-xs font-medium text-gray-400">Aguinaldo</h3>
+              </div>
+              <p className="text-lg sm:text-xl font-bold text-cyan-400 break-all leading-tight">
+                <CountUp end={monthTotalAguinaldo} formattingFn={(val) => `+${formatCurrency(val)}`} duration={1.5} />
               </p>
             </div>
           </Tilt>
@@ -817,7 +849,9 @@ export default function Dashboard() {
                          <div className="flex items-center gap-2 mb-1">
                             <h4 className="font-medium text-white truncate">{extra.descripcion}</h4>
                             <span className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded border ${
-                              extra.tipo === 'bono' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/20 text-orange-400 border-orange-500/20'
+                              extra.tipo === 'bono' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
+                              : extra.tipo === 'aguinaldo' ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/20'
+                              : 'bg-orange-500/20 text-orange-400 border-orange-500/20'
                             }`}>
                               {extra.tipo}
                             </span>
@@ -827,9 +861,9 @@ export default function Dashboard() {
                          </p>
                        </div>
                        <span className={`font-semibold shrink-0 ml-2 break-all text-right text-sm max-w-[40%] ${
-                         extra.tipo === 'bono' ? 'text-emerald-400' : 'text-orange-400'
+                         extra.tipo === 'adelanto' ? 'text-orange-400' : extra.tipo === 'aguinaldo' ? 'text-cyan-400' : 'text-emerald-400'
                        }`}>
-                         {extra.tipo === 'bono' ? '+' : '-'}{formatCurrency(extra.monto)}
+                         {extra.tipo === 'adelanto' ? '-' : '+'}{formatCurrency(extra.monto)}
                        </span>
                      </div>
                    </SwipeableItem>

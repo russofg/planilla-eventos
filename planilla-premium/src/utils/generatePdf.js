@@ -12,6 +12,7 @@ export const generatePdf = ({
   monthTotalEvents,
   monthTotalExpenses,
   monthTotalBonos,
+  monthTotalAguinaldo,
   monthTotalAdelantos,
   monthTotalFinal,
   filterMonth,
@@ -84,8 +85,19 @@ export const generatePdf = ({
   doc.text("Eventos", margin, currentY)
   currentY += 6
 
-  const eventsBody = events.map(evt => {
+  // Sort events chronologically (oldest first) for the report
+  const sortedEvents = [...events].sort(
+    (a, b) => new Date(a.fecha + 'T12:00:00') - new Date(b.fecha + 'T12:00:00')
+  )
+
+  // Accumulate the split between overtime pay and operation pay
+  let totalPagoExtra = 0
+  let totalPagoOperacion = 0
+
+  const eventsBody = sortedEvents.map(evt => {
     const calc = calcularPagoEvento(evt.fecha, evt.horaEntrada, evt.horaSalida, evt.operacion, evt.feriado, tarifasGlobales)
+    totalPagoExtra += calc.pagoExtra
+    totalPagoOperacion += calc.pagoOperacion
     const dateObj = new Date(evt.fecha + 'T12:00:00')
     return [
       evt.evento,
@@ -94,13 +106,15 @@ export const generatePdf = ({
       evt.horaSalida,
       evt.operacion ? "Sí" : "-",
       calc.horasExtra > 0 ? calc.horasExtra.toString() : "-",
+      calc.pagoExtra > 0 ? formatCur(calc.pagoExtra) : "-",
+      calc.pagoOperacion > 0 ? formatCur(calc.pagoOperacion) : "-",
       formatCur(calc.pagoTotalEvento)
     ]
   })
 
   autoTable(doc, {
     startY: currentY,
-    head: [['Evento', 'Fecha', 'Ingreso', 'Salida', 'Operación', 'H. Extra', 'Monto']],
+    head: [['Evento', 'Fecha', 'Ingreso', 'Salida', 'Oper.', 'H. Extra', '$ H. Extra', '$ Operación', 'Monto']],
     body: eventsBody,
     theme: 'grid',
     headStyles: {
@@ -119,12 +133,14 @@ export const generatePdf = ({
       fillColor: [252, 252, 252]
     },
     styles: {
-      fontSize: 9,
-      cellPadding: 5,
+      fontSize: 8,
+      cellPadding: 3,
       halign: 'left'
     },
     columnStyles: {
-      6: { halign: 'right', fontStyle: 'bold', textColor: colors.success }
+      6: { halign: 'right' },
+      7: { halign: 'right' },
+      8: { halign: 'right', fontStyle: 'bold', textColor: colors.success }
     }
   })
 
@@ -181,11 +197,16 @@ export const generatePdf = ({
   // Calculate dynamic rows needed for summary
   const summaryRows = [
     { label: "Sueldo Fijo Base:", value: formatCur(sueldoFijo), color: colors.textMain },
-    { label: "Total HS extras:", value: ` ${formatCur(monthTotalEvents)}`, color: colors.textMain }
+    { label: "Total Horas Extra:", value: ` ${formatCur(totalPagoExtra)}`, color: colors.textMain },
+    { label: "Total Operaciones:", value: ` ${formatCur(totalPagoOperacion)}`, color: colors.textMain }
   ];
 
   if (monthTotalBonos > 0) {
     summaryRows.push({ label: "Bonos:", value: `+${formatCur(monthTotalBonos)}`, color: colors.success });
+  }
+
+  if (monthTotalAguinaldo > 0) {
+    summaryRows.push({ label: "Aguinaldo:", value: `+${formatCur(monthTotalAguinaldo)}`, color: colors.success });
   }
 
   summaryRows.push({ label: "Gastos:", value: `+${formatCur(monthTotalExpenses)}`, color: colors.textMain });
@@ -221,7 +242,7 @@ export const generatePdf = ({
   let currentSummaryY = currentY + 20;
 
   summaryRows.forEach(row => {
-    doc.setTextColor(...(row.label === "Sueldo Fijo Base:" || row.label === "Total HS extras:" ? colors.textMain : row.color));
+    doc.setTextColor(...row.color);
     doc.text(row.label, margin + 6, currentSummaryY)
     doc.text(row.value, pageWidth - margin - 6, currentSummaryY, { align: "right" })
     currentSummaryY += rowHeight;

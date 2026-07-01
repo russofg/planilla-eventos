@@ -11,7 +11,7 @@ export function ExtraModal({ isOpen, onClose, extraToEdit = null }) {
   const [error, setError] = useState("")
   
   const [formData, setFormData] = useState({
-    tipo: "bono", // "bono" | "adelanto"
+    tipo: "bono", // "bono" | "aguinaldo" | "adelanto"
     descripcion: "",
     fecha: "",
     monto: "",
@@ -91,9 +91,15 @@ export function ExtraModal({ isOpen, onClose, extraToEdit = null }) {
     }))
   }
 
-  const isBono = formData.tipo === "bono"
-  const themeColor = isBono ? "emerald" : "orange"
-  const themeHex = isBono ? "#10b981" : "#f97316" // corresponding Tailwind hexes for emerald-500 and orange-500
+  // Theme per tipo. Bono/Aguinaldo are income; Adelanto is an expense.
+  const TIPO_THEMES = {
+    bono: { color: "emerald", hex: "#10b981", placeholder: "Ej. Premio por puntualidad" },
+    aguinaldo: { color: "cyan", hex: "#06b6d4", placeholder: "Ej. Medio aguinaldo (SAC)" },
+    adelanto: { color: "orange", hex: "#f97316", placeholder: "Ej. Adelanto en efectivo" },
+  }
+  const theme = TIPO_THEMES[formData.tipo] || TIPO_THEMES.bono
+  const themeColor = theme.color
+  const themeHex = theme.hex
 
   return (
     <Modal 
@@ -108,41 +114,31 @@ export function ExtraModal({ isOpen, onClose, extraToEdit = null }) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 mb-2">
-          <label 
-            className={`flex items-center justify-center p-3 rounded-xl border cursor-pointer transition-colors ${
-              isBono 
-                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" 
-                : "bg-black/50 border-white/10 text-gray-400 hover:bg-white/5"
-            }`}
-          >
-            <input 
-              type="radio" 
-              name="tipo" 
-              value="bono" 
-              checked={isBono} 
-              onChange={handleChange} 
-              className="sr-only" 
-            />
-            <span className="font-semibold text-sm">Bono (Ingreso)</span>
-          </label>
-          <label 
-            className={`flex items-center justify-center p-3 rounded-xl border cursor-pointer transition-colors ${
-              !isBono 
-                ? "bg-orange-500/20 border-orange-500/50 text-orange-400" 
-                : "bg-black/50 border-white/10 text-gray-400 hover:bg-white/5"
-            }`}
-          >
-            <input 
-              type="radio" 
-              name="tipo" 
-              value="adelanto" 
-              checked={!isBono} 
-              onChange={handleChange} 
-              className="sr-only" 
-            />
-            <span className="font-semibold text-sm">Adelanto (Egreso)</span>
-          </label>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          {[
+            { value: "bono", label: "Bono", active: "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" },
+            { value: "aguinaldo", label: "Aguinaldo", active: "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" },
+            { value: "adelanto", label: "Adelanto", active: "bg-orange-500/20 border-orange-500/50 text-orange-400" },
+          ].map(opt => (
+            <label
+              key={opt.value}
+              className={`flex items-center justify-center p-3 rounded-xl border cursor-pointer transition-colors text-center ${
+                formData.tipo === opt.value
+                  ? opt.active
+                  : "bg-black/50 border-white/10 text-gray-400 hover:bg-white/5"
+              }`}
+            >
+              <input
+                type="radio"
+                name="tipo"
+                value={opt.value}
+                checked={formData.tipo === opt.value}
+                onChange={handleChange}
+                className="sr-only"
+              />
+              <span className="font-semibold text-sm">{opt.label}</span>
+            </label>
+          ))}
         </div>
 
         <div>
@@ -154,7 +150,7 @@ export function ExtraModal({ isOpen, onClose, extraToEdit = null }) {
             onChange={handleChange}
             className={`w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-${themeColor}-500 transition-colors`}
             style={{ '--tw-ring-color': themeHex, borderColor: formData.descripcion ? '' : '' }}
-            placeholder={isBono ? "Ej. Premio por puntualidad" : "Ej. Adelanto en efectivo"}
+            placeholder={theme.placeholder}
             required
           />
         </div>
