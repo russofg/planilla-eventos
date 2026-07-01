@@ -87,8 +87,7 @@ export async function handler(event) {
     const chatId = update?.message?.chat?.id || update?.callback_query?.message?.chat?.id;
     if (chatId) {
       try {
-        // TEMP debug: surface the real error to diagnose, then revert.
-        await sendMessage(chatId, 'Error: <code>' + String(err?.stack || err?.message || err).slice(0, 500) + '</code>');
+        await sendMessage(chatId, 'Ocurrió un error procesando tu mensaje. Probá de nuevo en un momento.');
       } catch { /* ignore */ }
     }
     return { statusCode: 200, body: 'ok' };
@@ -268,6 +267,9 @@ async function findCandidates(db, userId, entity, intent) {
   if (reciente) {
     candidates.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     candidates = candidates.slice(0, 1);
+  } else {
+    // Most recent first, so the disambiguation buttons show the likely ones.
+    candidates.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
   }
 
   return { needsSelector: false, candidates };
@@ -393,7 +395,8 @@ async function handleDelete(chatId, userId, entity, intent) {
   ]);
   buttons.push([{ text: '❌ Cancelar', callback_data: `no:${pid}` }]);
 
-  await sendMessage(chatId, `Encontré ${candidates.length} que coinciden. ¿Cuál borro?`, {
+  const extra = candidates.length > 8 ? ' Te muestro los 8 más recientes; afiná con la fecha si no aparece.' : '';
+  await sendMessage(chatId, `Encontré ${candidates.length} que coinciden.${extra} ¿Cuál borro?`, {
     reply_markup: { inline_keyboard: buttons },
   });
 }
@@ -496,7 +499,8 @@ async function handleEdit(chatId, userId, entity, intent) {
   ]);
   buttons.push([{ text: '❌ Cancelar', callback_data: `no:${pid}` }]);
 
-  await sendMessage(chatId, `Cambios a aplicar:\n${changeText}\n\n¿A cuál?`, {
+  const extra = candidates.length > 8 ? '\nTe muestro los 8 más recientes; afiná con la fecha si no aparece.' : '';
+  await sendMessage(chatId, `Cambios a aplicar:\n${changeText}${extra}\n\n¿A cuál?`, {
     reply_markup: { inline_keyboard: buttons },
   });
 }
