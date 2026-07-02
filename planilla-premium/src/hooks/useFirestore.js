@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react"
-import { collection, query, where, onSnapshot, orderBy, doc } from "firebase/firestore"
+import { collection, query, where, onSnapshot, doc } from "firebase/firestore"
 import { db } from "../lib/firebase"
 import { useAuth } from "../contexts/AuthContext"
-import { calcularPagoEvento } from "../utils/calculations"
+import { sumEventos, sumGastos, sumExtras, assembleTotalFinal } from "../utils/totals"
 
 export const COLLECTIONS = {
   EVENTOS: "eventos",
@@ -24,12 +24,12 @@ export function useFirestore() {
   // Custom totals & prefs
   const [userPrefs, setUserPrefs] = useState({ sueldoFijo: 0 });
   const [sueldoFijo, setSueldoFijo] = useState(0);
-  const [totalEventos, setTotalEventos] = useState(0);
-  const [totalGastos, setTotalGastos] = useState(0);
-  const [totalBonos, setTotalBonos] = useState(0);
-  const [totalAguinaldo, setTotalAguinaldo] = useState(0);
-  const [totalAdelantos, setTotalAdelantos] = useState(0);
-  const [totalFinal, setTotalFinal] = useState(0);
+  const [totalEventosGlobal, setTotalEventosGlobal] = useState(0);
+  const [totalGastosGlobal, setTotalGastosGlobal] = useState(0);
+  const [totalBonosGlobal, setTotalBonosGlobal] = useState(0);
+  const [totalAguinaldoGlobal, setTotalAguinaldoGlobal] = useState(0);
+  const [totalAdelantosGlobal, setTotalAdelantosGlobal] = useState(0);
+  const [totalFinalGlobal, setTotalFinalGlobal] = useState(0);
   const [tarifasGlobales, setTarifasGlobales] = useState({
     tarifaComun: 11000,
     tarifaFin: 12700,
@@ -146,45 +146,35 @@ export function useFirestore() {
 
   // Recalculate Totals
   useEffect(() => {
-    const tEvents = events.reduce((acc, curr) => {
-      const calc = calcularPagoEvento(
-        curr.fecha,
-        curr.horaEntrada,
-        curr.horaSalida,
-        curr.operacion,
-        curr.feriado,
-        tarifasGlobales
-      );
-      return acc + calc.pagoTotalEvento;
-    }, 0);
-    setTotalEventos(tEvents);
+    setTotalEventosGlobal(sumEventos(events, tarifasGlobales));
   }, [events, tarifasGlobales]);
 
   useEffect(() => {
-    const tGastos = expenses.reduce((acc, curr) => acc + (curr.monto || 0), 0);
-    setTotalGastos(tGastos);
+    setTotalGastosGlobal(sumGastos(expenses));
   }, [expenses]);
 
   useEffect(() => {
-    let tBonos = 0;
-    let tAguinaldo = 0;
-    let tAdelantos = 0;
-    extras.forEach(ext => {
-      if (ext.tipo === "bono") tBonos += (ext.monto || 0);
-      else if (ext.tipo === "aguinaldo") tAguinaldo += (ext.monto || 0);
-      else if (ext.tipo === "adelanto") tAdelantos += (ext.monto || 0);
-    });
-    setTotalBonos(tBonos);
-    setTotalAguinaldo(tAguinaldo);
-    setTotalAdelantos(tAdelantos);
+    const { bonos, aguinaldo, adelantos } = sumExtras(extras);
+    setTotalBonosGlobal(bonos);
+    setTotalAguinaldoGlobal(aguinaldo);
+    setTotalAdelantosGlobal(adelantos);
   }, [extras]);
 
   // Recalculate Total Final whenever components change
   useEffect(() => {
     // Total = Sueldo Fijo + Eventos + Gastos + Bonos + Aguinaldo - Adelantos
     // Gastos se suman porque son plata puesta por el usuario que se le debe reintegrar
-    setTotalFinal(sueldoFijo + totalEventos + totalGastos + totalBonos + totalAguinaldo - totalAdelantos);
-  }, [sueldoFijo, totalEventos, totalGastos, totalBonos, totalAguinaldo, totalAdelantos]);
+    setTotalFinalGlobal(
+      assembleTotalFinal({
+        sueldoFijo,
+        eventos: totalEventosGlobal,
+        gastos: totalGastosGlobal,
+        bonos: totalBonosGlobal,
+        aguinaldo: totalAguinaldoGlobal,
+        adelantos: totalAdelantosGlobal,
+      })
+    );
+  }, [sueldoFijo, totalEventosGlobal, totalGastosGlobal, totalBonosGlobal, totalAguinaldoGlobal, totalAdelantosGlobal]);
 
   return {
     events,
@@ -195,12 +185,12 @@ export function useFirestore() {
     retry: () => setRetryCount((c) => c + 1),
     sueldoFijo,
     userPrefs,
-    totalEventos,
-    totalGastos,
-    totalBonos,
-    totalAguinaldo,
-    totalAdelantos,
-    totalFinal,
+    totalEventosGlobal,
+    totalGastosGlobal,
+    totalBonosGlobal,
+    totalAguinaldoGlobal,
+    totalAdelantosGlobal,
+    totalFinalGlobal,
     tarifasGlobales
   };
 }

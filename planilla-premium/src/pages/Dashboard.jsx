@@ -15,6 +15,7 @@ import { ExpenseModal } from "../components/expenses/ExpenseModal"
 import { ExtraModal } from "../components/extras/ExtraModal"
 import { SwipeableItem } from "../components/ui/SwipeableItem"
 import { calcularPagoEvento } from "../utils/calculations"
+import { sumEventos, sumGastos, sumExtras, assembleTotalFinal } from "../utils/totals"
 import { generatePdf } from "../utils/generatePdf"
 import { useAuth } from "../contexts/AuthContext"
 import { playPopSound, playTickSound } from "../utils/audio"
@@ -72,23 +73,10 @@ export default function Dashboard() {
       tempExtras = tempExtras.filter(x => x.descripcion.toLowerCase().includes(filterText.toLowerCase()));
     }
 
-    const tEvents = tempEvents.reduce((acc, curr) => {
-      const calc = calcularPagoEvento(curr.fecha, curr.horaEntrada, curr.horaSalida, curr.operacion, curr.feriado, tarifasGlobales);
-      return acc + calc.pagoTotalEvento;
-    }, 0);
-
-    const tExpenses = tempExpenses.reduce((acc, curr) => acc + (curr.monto || 0), 0);
-    
-    let tBonos = 0;
-    let tAguinaldo = 0;
-    let tAdelantos = 0;
-    tempExtras.forEach(ext => {
-      if (ext.tipo === 'bono') tBonos += (ext.monto || 0);
-      else if (ext.tipo === 'aguinaldo') tAguinaldo += (ext.monto || 0);
-      else if (ext.tipo === 'adelanto') tAdelantos += (ext.monto || 0);
-    });
-
-    const tFinal = sueldoFijo + tEvents + tExpenses + tBonos + tAguinaldo - tAdelantos;
+    const tEvents = sumEventos(tempEvents, tarifasGlobales);
+    const tExpenses = sumGastos(tempExpenses);
+    const { bonos: tBonos, aguinaldo: tAguinaldo, adelantos: tAdelantos } = sumExtras(tempExtras);
+    const tFinal = assembleTotalFinal({ sueldoFijo, eventos: tEvents, gastos: tExpenses, bonos: tBonos, aguinaldo: tAguinaldo, adelantos: tAdelantos });
 
     return {
       filteredEvents: tempEvents,
@@ -176,22 +164,10 @@ export default function Dashboard() {
         return d.getMonth() === prevM && d.getFullYear() === prevY;
     });
 
-    const pTotalEvents = pEvents.reduce((acc, curr) => {
-      const calc = calcularPagoEvento(curr.fecha, curr.horaEntrada, curr.horaSalida, curr.operacion, curr.feriado, tarifasGlobales);
-      return acc + calc.pagoTotalEvento;
-    }, 0);
-    const pTotalExpenses = pExpenses.reduce((acc, curr) => acc + (curr.monto || 0), 0);
-    
-    let pBonos = 0;
-    let pAguinaldo = 0;
-    let pAdelantos = 0;
-    pExtras.forEach(ext => {
-      if (ext.tipo === 'bono') pBonos += (ext.monto || 0);
-      else if (ext.tipo === 'aguinaldo') pAguinaldo += (ext.monto || 0);
-      else if (ext.tipo === 'adelanto') pAdelantos += (ext.monto || 0);
-    });
-
-    const pTotalFinal = sueldoFijo + pTotalEvents + pTotalExpenses + pBonos + pAguinaldo - pAdelantos;
+    const pTotalEvents = sumEventos(pEvents, tarifasGlobales);
+    const pTotalExpenses = sumGastos(pExpenses);
+    const { bonos: pBonos, aguinaldo: pAguinaldo, adelantos: pAdelantos } = sumExtras(pExtras);
+    const pTotalFinal = assembleTotalFinal({ sueldoFijo, eventos: pTotalEvents, gastos: pTotalExpenses, bonos: pBonos, aguinaldo: pAguinaldo, adelantos: pAdelantos });
 
     // Growth (MoM) is computed once in statsWithGrowth, which consumes these totals.
     return {

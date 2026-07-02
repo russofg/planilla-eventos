@@ -15,7 +15,7 @@ import { useGSAP } from "@gsap/react"
 gsap.registerPlugin(useGSAP)
 
 export default function Events() {
-  const { events, loading, totalEventos, tarifasGlobales } = useFirestore()
+  const { events, loading, totalEventosGlobal, tarifasGlobales } = useFirestore()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [visibleCount, setVisibleCount] = useState(15)
@@ -96,7 +96,7 @@ export default function Events() {
            </div>
            <div className="min-w-0 flex-1">
               <h3 className="text-sm font-medium text-gray-400 mb-1">Ganancia por Eventos (Global)</h3>
-              <p className="text-2xl sm:text-4xl font-bold text-green-400 break-all leading-tight">{formatCurrency(totalEventos)}</p>
+              <p className="text-2xl sm:text-4xl font-bold text-green-400 break-all leading-tight">{formatCurrency(totalEventosGlobal)}</p>
            </div>
         </div>
       </div>
