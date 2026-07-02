@@ -26,4 +26,12 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Netlify serverless functions and Node scripts run in a Node
+    // environment, so expose Node globals (process, Buffer, ...).
+    files: ['netlify/**/*.js', 'encrypt_certs.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ])
