@@ -7,6 +7,7 @@ import { doc, deleteDoc } from "firebase/firestore"
 import { db } from "../lib/firebase"
 import { COLLECTIONS } from "../hooks/useFirestore"
 import { ExpenseModal } from "../components/expenses/ExpenseModal"
+import { sumGastos } from "../utils/totals"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 
@@ -67,7 +68,7 @@ export default function Expenses() {
     );
   }
 
-  const totalGastos = expenses.reduce((acc, curr) => acc + (curr.monto || 0), 0)
+  const totalGastos = sumGastos(expenses)
 
   return (
     <div className="space-y-6" ref={container}>
