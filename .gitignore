@@ -24,3 +24,9 @@ Thumbs.db
 # Build files
 dist/
 build/
+
+# Local Netlify folder
+.netlify
+
+# SDD skill registry (local tooling metadata)
+.atl/
