@@ -20,6 +20,8 @@ export default function Facturacion() {
   useEffect(() => {
     if (!currentUser) return;
 
+    // Reset loading each time the Firestore subscription is (re)established for a user.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     const facturasRef = collection(db, "facturas");
     // Show user's invoices. If admin, could show all, but we stick to user's for privacy/safety

@@ -11,6 +11,8 @@ export function useCalendarEvents() {
 
   useEffect(() => {
     if (!currentUser) return;
+    // Reset loading each time the Firestore subscription is (re)established for a user.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
 
     // Regular Events Ref

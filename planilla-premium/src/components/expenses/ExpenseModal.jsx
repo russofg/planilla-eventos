@@ -5,6 +5,8 @@ import { db } from "../../lib/firebase"
 import { COLLECTIONS } from "../../hooks/useFirestore"
 import { useAuth } from "../../contexts/AuthContext"
 
+const presetCategories = ["Nafta", "Comida", "Estacionamiento", "Bono", "General"]
+
 export function ExpenseModal({ isOpen, onClose, expenseToEdit = null }) {
   const { currentUser } = useAuth()
   const [loading, setLoading] = useState(false)
@@ -17,7 +19,6 @@ export function ExpenseModal({ isOpen, onClose, expenseToEdit = null }) {
   })
   
   const [isCustomCategory, setIsCustomCategory] = useState(false)
-  const presetCategories = ["Nafta", "Comida", "Estacionamiento", "Bono", "General"]
 
   // Pre-fill form if editing
   useEffect(() => {

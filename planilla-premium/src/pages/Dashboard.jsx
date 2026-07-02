@@ -260,7 +260,7 @@ export default function Dashboard() {
     } else {
       return "Tus números se mantienen estables respecto al anterior ⚖️";
     }
-  }, [prevMonthStats, monthTotalFinal, filteredEvents.length]);
+  }, [prevMonthStats, monthTotalFinal, filteredEvents.length, filterText]);
 
   const handleExportPdf = () => {
     playTickSound();

@@ -36,4 +36,5 @@ export function AuthProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- context hook is colocated with its provider; affects fast-refresh only, not runtime
 export const useAuth = () => useContext(AuthContext);
