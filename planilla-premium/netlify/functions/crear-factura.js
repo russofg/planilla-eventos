@@ -33,11 +33,11 @@ export async function handler(event) {
     };
   }
 
-  let idToken, decodedToken;
+  let idToken;
   try {
     idToken = authHeader.split('Bearer ')[1];
-    decodedToken = await admin.auth().verifyIdToken(idToken);
-  } catch (err) {
+    await admin.auth().verifyIdToken(idToken);
+  } catch {
     return {
       statusCode: 403,
       headers: { 'Content-Type': 'application/json' },

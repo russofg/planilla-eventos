@@ -109,7 +109,7 @@ export function calcularPagoEvento(
         pagoTotalEvento: pagoTotal,
         horasAdentroSueldo: Math.round(horasAdentroSueldo * 10) / 10
     };
-  } catch (e) {
+  } catch {
     return { horasExtra: 0, pagoExtra: 0, pagoOperacion: 0, pagoTotalEvento: 0, horasAdentroSueldo: 0 };
   }
 }

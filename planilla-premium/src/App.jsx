@@ -35,7 +35,7 @@ function Login() {
     setLoading(true);
     setError("");
     
-    const { user, error: authError } = await signIn(email, password);
+    const { error: authError } = await signIn(email, password);
     
     if (authError) {
       setError("Credenciales incorrectas o error de conexión.");

@@ -7,9 +7,7 @@ import { calcularPagoEvento } from "./calculations"
 export const generatePdf = ({
   events,
   expenses,
-  extras,
   sueldoFijo,
-  monthTotalEvents,
   monthTotalExpenses,
   monthTotalBonos,
   monthTotalAguinaldo,

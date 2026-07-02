@@ -1,4 +1,4 @@
-import { motion, useAnimation, useMotionValue } from "framer-motion"
+import { useAnimation, useMotionValue } from "framer-motion"
 import { Trash2, Edit } from "lucide-react"
 
 export function SwipeableItem({ children, onEdit, onDelete }) {

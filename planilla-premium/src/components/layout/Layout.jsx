@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom"
-import { motion, AnimatePresence } from "framer-motion"
+import { AnimatePresence } from "framer-motion"
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "../../contexts/AuthContext"
 import { useFirestore } from "../../hooks/useFirestore"
-import { useState, useEffect, useRef, lazy, Suspense } from "react"
+import { useState, useEffect, lazy, Suspense } from "react"
 import { cn } from "../../utils/cn"
 import { subscribeToNotifications, markNotificationAsRead } from "../../services/pushService"
 import { playTickSound } from "../../utils/audio"
