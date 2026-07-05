@@ -33,7 +33,7 @@ export async function interpretMessage(userText) {
   const system =
     `Sos el asistente de una planilla de trabajo. Hoy es ${todayIso} (${weekday}), ` +
     `zona horaria ${TIMEZONE}. Interpretá el mensaje (español coloquial argentino) y devolvé SOLO un JSON.\n\n` +
-    `"action": "crear" | "borrar" | "editar" | "desconocido".\n` +
+    `"action": "crear" | "borrar" | "editar" | "consultar" | "desconocido".\n` +
     `"entidad": "evento" | "gasto" | "bono" | "aguinaldo" | "adelanto".\n` +
     `  - evento: un turno de trabajo (tiene horarios de entrada y salida).\n` +
     `  - gasto: dinero gastado (ej. comida, viáticos).\n` +
@@ -57,6 +57,22 @@ export async function interpretMessage(userText) {
     `- "referencia": "reciente" si dice "el último"/"el de recién" sin nombrarlo\n` +
     `Y si action="editar", agregá "cambios": un objeto con SOLO los campos nuevos ` +
     `(mismos nombres que en crear según la entidad: para dinero pueden ser descripcion/fecha/monto).\n\n` +
+    `Las acciones de escritura (crear/borrar/editar) tienen prioridad: si el mensaje pide crear, ` +
+    `borrar o editar (modifica datos), usá esa acción. Usá "consultar" SOLO para preguntas de lectura ` +
+    `(cuánto/cuántos/qué/listá) que NO modifican datos.\n\n` +
+    `Si action="consultar", agregá "metric" (uno de): countEventos, countEventosConOperacion, ` +
+    `listEventosConOperacion, horasExtra, totalEventos, totalGastos, totalBonos, totalAguinaldo, ` +
+    `totalAdelantos, totalFinal.\n` +
+    `  - countEventos: cantidad de eventos. countEventosConOperacion: cantidad de eventos con operación.\n` +
+    `  - listEventosConOperacion: lista de eventos con operación. horasExtra: horas extra trabajadas.\n` +
+    `  - totalEventos: ganancia por eventos. totalGastos: gastos. totalBonos/totalAguinaldo/totalAdelantos: ` +
+    `dinero de ese tipo. totalFinal: total final del período.\n` +
+    `Y agregá "period" con una de estas formas:\n` +
+    `  - {"type":"month","year":YYYY,"month":1-12} (resolvé "este mes"/"mes pasado" con la fecha de hoy)\n` +
+    `  - {"type":"range","from":"YYYY-MM-DD","to":"YYYY-MM-DD"} (fechas explícitas)\n` +
+    `  - {"type":"compare","periods":[<dos period month o range>]} (para "vs"/"comparar")\n` +
+    `Si no se menciona período, usá el mes actual como {"type":"month"}.\n` +
+    `Si el período no encaja en esas formas (ej. "últimos 3 meses", "este trimestre"), poné action "desconocido".\n\n` +
     `No inventes datos. Respondé SOLO el JSON, sin texto extra.`;
 
   const res = await fetch(OPENROUTER_URL, {
@@ -74,7 +90,7 @@ export async function interpretMessage(userText) {
       ],
       response_format: { type: 'json_object' },
       temperature: 0,
-      max_tokens: 300,
+      max_tokens: 400,
     }),
   });
 

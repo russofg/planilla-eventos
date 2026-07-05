@@ -9,6 +9,7 @@ import {
 } from './utils/telegram.js';
 import { interpretMessage } from './utils/openrouter.js';
 import { transcribeAudio } from './utils/groq.js';
+import { runQuery, SUPPORTED_METRICS, unsupportedCombo } from './utils/queryEngine.js';
 
 /**
  * Netlify Function: telegram-webhook
@@ -224,16 +225,21 @@ async function handleUserText(chatId, text, userId) {
     return;
   }
 
+  // consultar is read-only and carries no entity — route it before the entity guard.
+  if (intent?.action === 'consultar') return handleQuery(chatId, userId, intent);
+
   const entity = getEntity(intent);
+  // 'consultar' is handled above via early return, so it is intentionally absent here.
   const known = ['crear', 'borrar', 'editar'].includes(intent?.action);
   if (!known || !entity) {
     await sendMessage(
       chatId,
-      'No entendí bien 🤔. Podés cargar, editar o borrar:\n' +
+      'No entendí bien 🤔. Podés cargar, editar, borrar o consultar:\n' +
         '• <b>Evento</b>: "agregá amcham hoy de 6 a 19 con operación"\n' +
         '• <b>Gasto</b>: "gasté 65 mil en comida hoy"\n' +
         '• <b>Adelanto/Bono/Aguinaldo</b>: "cargá un adelanto de 100 mil"\n' +
-        '• <b>Borrar/editar</b>: "borrá el último", "cambiale el monto al gasto de comida"'
+        '• <b>Borrar/editar</b>: "borrá el último", "cambiale el monto al gasto de comida"\n' +
+        '• <b>Consultar</b>: "cuántos eventos este mes", "horas extra mes pasado vs este mes"'
     );
     return;
   }
@@ -241,6 +247,140 @@ async function handleUserText(chatId, text, userId) {
   if (intent.action === 'crear') return handleCreate(chatId, userId, entity, intent);
   if (intent.action === 'borrar') return handleDelete(chatId, userId, entity, intent);
   return handleEdit(chatId, userId, entity, intent);
+}
+
+/* ------------------------------- Queries -------------------------------- */
+
+const MONTHS_ES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+// Human-readable title per metric, used in scalar/money and compare headers.
+const METRIC_TITLE = {
+  countEventos: 'Eventos',
+  countEventosConOperacion: 'Eventos con operación',
+  listEventosConOperacion: 'Eventos con operación',
+  horasExtra: 'Horas extra',
+  totalEventos: 'Ganancia por eventos',
+  totalGastos: 'Gastos',
+  totalBonos: 'Bonos',
+  totalAguinaldo: 'Aguinaldo',
+  totalAdelantos: 'Adelantos',
+  totalFinal: 'Total final',
+};
+
+const PERIOD_TYPES = ['month', 'range', 'compare'];
+
+// Validates a single (month|range) sub-period. Rejects malformed shapes that
+// would otherwise produce "undefined <year>" labels or a TypeError downstream.
+function isValidSinglePeriod(period) {
+  if (!period || typeof period !== 'object') return false;
+  if (period.type === 'month') {
+    return (
+      Number.isInteger(period.month) &&
+      period.month >= 1 &&
+      period.month <= 12 &&
+      Number.isInteger(period.year)
+    );
+  }
+  if (period.type === 'range') {
+    // Require well-formed YYYY-MM-DD bounds in order (from <= to); malformed
+    // ranges fall through to the friendly hint instead of computing garbage.
+    return isDate(period.from) && isDate(period.to) && period.from <= period.to;
+  }
+  return false;
+}
+
+function isValidPeriod(period) {
+  if (!period || typeof period !== 'object') return false;
+  if (!PERIOD_TYPES.includes(period.type)) return false;
+  if (period.type === 'compare') {
+    // Exactly two sub-periods, each a valid month|range (nested compare not allowed).
+    return (
+      Array.isArray(period.periods) &&
+      period.periods.length === 2 &&
+      period.periods.every(isValidSinglePeriod)
+    );
+  }
+  return isValidSinglePeriod(period);
+}
+
+function periodLabel(period) {
+  if (!period) return '';
+  if (period.type === 'month') return `${MONTHS_ES[period.month - 1]} ${period.year}`;
+  if (period.type === 'range') return `${period.from}–${period.to}`;
+  return '';
+}
+
+function formatValue(unit, value) {
+  if (unit === 'money') return fmtMoney(value);
+  if (unit === 'hours') return `${value} h`;
+  return String(value);
+}
+
+// LLM phrasing for the operation list is deferred: plain bullet list only.
+function phraseOperList(items) {
+  return items.map((name) => `• ${name}`).join('\n');
+}
+
+function formatQueryReply(result) {
+  const label = periodLabel(result.period);
+
+  if (result.kind === 'compare') {
+    const [a, b] = result.results;
+    const arrow = result.delta > 0 ? '▲' : result.delta < 0 ? '▼' : '=';
+    const deltaFmt = formatValue(result.unit, Math.abs(result.delta));
+    return (
+      `📊 ${METRIC_TITLE[result.metric] || 'Comparación'}\n` +
+      `${a.label}: <b>${formatValue(result.unit, a.value)}</b> · ` +
+      `${b.label}: <b>${formatValue(result.unit, b.value)}</b> (${arrow} ${deltaFmt})`
+    );
+  }
+
+  if (result.kind === 'list') {
+    if (!result.items.length) return `📊 ${label}\nNo tenés eventos con operación.`;
+    return `📊 ${label}\nEventos con operación (${result.items.length}):\n${phraseOperList(result.items)}`;
+  }
+
+  // scalar
+  if (result.unit === 'money') {
+    return `📊 ${label}\n${METRIC_TITLE[result.metric] || 'Total'}: <b>${fmtMoney(result.value)}</b>`;
+  }
+  if (result.unit === 'hours') {
+    return `📊 ${label}\nHoras extra: <b>${result.value} h</b>.`;
+  }
+  const opSuffix = result.metric === 'countEventosConOperacion' ? ' con operación' : '';
+  return `📊 ${label}\nTuviste <b>${result.value}</b> evento(s)${opSuffix}.`;
+}
+
+async function handleQuery(chatId, userId, intent) {
+  const metric = intent?.metric;
+  const period = intent?.period;
+
+  if (!SUPPORTED_METRICS.includes(metric) || !isValidPeriod(period)) {
+    await sendMessage(
+      chatId,
+      'No entendí la consulta 🤔. Probá: <i>"cuántos eventos este mes"</i>, ' +
+        '<i>"horas extra mes pasado vs este mes"</i>.'
+    );
+    return;
+  }
+
+  // Reject metric+period combos that would produce a wrong/meaningless number.
+  const unsupportedReason = unsupportedCombo(metric, period);
+  if (unsupportedReason) {
+    await sendMessage(chatId, unsupportedReason);
+    return;
+  }
+
+  try {
+    const result = await runQuery({ db: getDb(), userId, metric, period });
+    await sendMessage(chatId, formatQueryReply(result));
+  } catch (err) {
+    console.error('handleQuery error:', err);
+    await sendMessage(chatId, 'No pude calcular esa consulta ahora. Probá de nuevo en un momento.');
+  }
 }
 
 /* -------------------------- Candidate matching -------------------------- */
