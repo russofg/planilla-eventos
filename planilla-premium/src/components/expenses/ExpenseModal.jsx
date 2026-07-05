@@ -4,6 +4,7 @@ import { addDoc, collection, doc, updateDoc, serverTimestamp } from "firebase/fi
 import { db } from "../../lib/firebase"
 import { COLLECTIONS } from "../../hooks/useFirestore"
 import { useAuth } from "../../contexts/AuthContext"
+import { motion } from "framer-motion"
 
 const presetCategories = ["Nafta", "Comida", "Estacionamiento", "Bono", "General"]
 

@@ -1,4 +1,4 @@
-import { AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { X } from "lucide-react"
 
 export function Modal({ isOpen, onClose, title, children }) {
