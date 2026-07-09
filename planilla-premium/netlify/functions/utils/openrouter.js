@@ -103,17 +103,28 @@ export async function interpretMessage(userText) {
     `borrar o editar (modifica datos), usá esa acción. Usá "consultar" SOLO para preguntas de lectura ` +
     `(cuánto/cuántos/qué/listá) que NO modifican datos.\n\n` +
     `Si action="consultar", agregá "metric" (uno de): countEventos, countEventosConOperacion, ` +
-    `listEventosConOperacion, listEventos, listGastos, listExtras, horasExtra, totalEventos, ` +
-    `totalGastos, totalBonos, totalAguinaldo, totalAdelantos, totalFinal.\n` +
+    `listEventosConOperacion, listEventos, listGastos, listExtras, horasExtra, pagoHorasExtra, ` +
+    `pagoOperaciones, desglosePagoEventos, totalEventos, totalGastos, totalBonos, totalAguinaldo, ` +
+    `totalAdelantos, totalFinal.\n` +
     `  - countEventos: cantidad de eventos. countEventosConOperacion: cantidad de eventos con operación.\n` +
-    `  - listEventosConOperacion: lista de eventos con operación. horasExtra: horas extra trabajadas.\n` +
+    `  - listEventosConOperacion: lista de eventos con operación.\n` +
+    `  - horasExtra: CANTIDAD de horas extra (un número de horas, NO pesos). Usalo para "cuántas horas ` +
+    `extra".\n` +
+    `  - pagoHorasExtra: la PLATA en pesos que generaron esas horas extra (sin operaciones). Usalo para ` +
+    `"cuánto en pesos/plata de las horas extra", "cuánto gané por las horas extra", "el pago de horas extra".\n` +
+    `  - pagoOperaciones: la PLATA en pesos de las operaciones (sin horas extra). Usalo para "cuánto de ` +
+    `operaciones", "el pago de las operaciones".\n` +
+    `  - desglosePagoEventos: el DESGLOSE, horas extra y operaciones POR SEPARADO en pesos. Usalo cuando ` +
+    `pida "discriminá", "desglosá", "separá", "cuánto de cada uno", "horas extra y operaciones por separado".\n` +
     `  - listEventos: DETALLE de los eventos (nombre, fecha, horarios, operación, feriado, día). Usalo ` +
     `cuando pida "detalle", "listame/mostrame los eventos o turnos", "cuáles fueron", "qué eventos tuve ` +
     `con sus datos". listGastos: detalle de los gastos ("en qué gasté", "listame los gastos"). ` +
     `listExtras: detalle de bonos/aguinaldos/adelantos.\n` +
-    `  - totalEventos: ganancia por eventos. totalGastos: gastos. totalBonos/totalAguinaldo/totalAdelantos: ` +
-    `dinero de ese tipo. totalFinal: total final del período.\n` +
-    `  - Distinguí: "cuántos/cuánto" → count/total (número); "cuáles/detalle/listame" → listEventos/listGastos/listExtras.\n` +
+    `  - totalEventos: ganancia TOTAL por eventos (horas extra + operaciones JUNTAS). totalGastos: gastos. ` +
+    `totalBonos/totalAguinaldo/totalAdelantos: dinero de ese tipo. totalFinal: total final del período.\n` +
+    `  - Distinguí bien: "cuántas horas extra" (cantidad) → horasExtra; "cuánto/pesos/plata de horas extra" ` +
+    `→ pagoHorasExtra; "de operaciones" → pagoOperaciones; "discriminá/desglosá/por separado" → ` +
+    `desglosePagoEventos; "cuáles/detalle/listame" → listEventos/listGastos/listExtras.\n` +
     `Y agregá "period" con una de estas formas:\n` +
     `  - {"type":"month","year":YYYY,"month":1-12} (resolvé "este mes"/"mes pasado" con la fecha de hoy)\n` +
     `  - {"type":"range","from":"YYYY-MM-DD","to":"YYYY-MM-DD"} (fechas explícitas)\n` +

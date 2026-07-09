@@ -39,6 +39,11 @@ const METRIC_META = {
   listGastos: { kind: 'listDetail', entity: 'gasto' },
   listExtras: { kind: 'listDetail', entity: 'extra' },
   horasExtra: { kind: 'scalar', unit: 'hours' },
+  // Money split of event pay: overtime-hours pay vs operation pay (the two
+  // components of totalEventos). desglosePagoEventos returns both at once.
+  pagoHorasExtra: { kind: 'scalar', unit: 'money' },
+  pagoOperaciones: { kind: 'scalar', unit: 'money' },
+  desglosePagoEventos: { kind: 'breakdown', unit: 'money' },
   totalEventos: { kind: 'scalar', unit: 'money' },
   totalGastos: { kind: 'scalar', unit: 'money' },
   totalBonos: { kind: 'scalar', unit: 'money' },
@@ -89,6 +94,12 @@ export function unsupportedCombo(metric, period) {
 
   if (LIST_METRICS.includes(metric) && period.type === 'compare') {
     return LIST_COMPARE_MSG;
+  }
+
+  // The pay breakdown returns two figures, not one scalar, so it has no compare
+  // semantics: ask for it one period at a time.
+  if (metric === 'desglosePagoEventos' && period.type === 'compare') {
+    return 'El desglose de pago va por un período a la vez. Pedímelo por un mes puntual 🙂';
   }
 
   if (metric === 'totalFinal') {
@@ -166,6 +177,16 @@ function scalarValue(metric, period, data) {
     case 'horasExtra':
       return fEvents.reduce(
         (acc, e) => acc + calcularPagoEvento(e.fecha, e.horaEntrada, e.horaSalida, e.operacion, e.feriado, tarifas).horasExtra,
+        0
+      );
+    case 'pagoHorasExtra':
+      return fEvents.reduce(
+        (acc, e) => acc + calcularPagoEvento(e.fecha, e.horaEntrada, e.horaSalida, e.operacion, e.feriado, tarifas).pagoExtra,
+        0
+      );
+    case 'pagoOperaciones':
+      return fEvents.reduce(
+        (acc, e) => acc + calcularPagoEvento(e.fecha, e.horaEntrada, e.horaSalida, e.operacion, e.feriado, tarifas).pagoOperacion,
         0
       );
     case 'totalEventos':
@@ -250,6 +271,20 @@ function detailItems(metric, period, data) {
   }));
 }
 
+/** Splits event pay for a period into overtime-hours pay vs operation pay. */
+function breakdownPagoEventos(period, data) {
+  const { fEvents } = filteredData(period, data);
+  const tarifas = data.tarifas || DEFAULT_TARIFAS;
+  let pagoHorasExtra = 0;
+  let pagoOperaciones = 0;
+  for (const e of fEvents) {
+    const c = calcularPagoEvento(e.fecha, e.horaEntrada, e.horaSalida, e.operacion, e.feriado, tarifas);
+    pagoHorasExtra += c.pagoExtra;
+    pagoOperaciones += c.pagoOperacion;
+  }
+  return { pagoHorasExtra, pagoOperaciones, total: pagoHorasExtra + pagoOperaciones };
+}
+
 /**
  * Pure computation core (no Firestore). Dispatches the metric over pre-loaded
  * data. `compare` periods run the scalar metric once per sub-period and return
@@ -272,6 +307,10 @@ export function computeMetric({ metric, period, data }) {
 
   if (meta.kind === 'listDetail') {
     return { metric, period, kind: 'listDetail', entity: meta.entity, items: detailItems(metric, period, data) };
+  }
+
+  if (meta.kind === 'breakdown') {
+    return { metric, period, kind: 'breakdown', unit: meta.unit, ...breakdownPagoEventos(period, data) };
   }
 
   return { metric, period, kind: 'scalar', unit: meta.unit, value: scalarValue(metric, period, data) };

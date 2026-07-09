@@ -244,6 +244,8 @@ const METRIC_TITLE = {
   countEventosConOperacion: 'Eventos con operación',
   listEventosConOperacion: 'Eventos con operación',
   horasExtra: 'Horas extra',
+  pagoHorasExtra: 'Pago de horas extra',
+  pagoOperaciones: 'Pago de operaciones',
   totalEventos: 'Ganancia por eventos',
   totalGastos: 'Gastos',
   totalBonos: 'Bonos',
@@ -299,6 +301,15 @@ function formatQueryReply(result) {
       return `💵 <b>${r.descripcion}</b>${tipo} — ${fmtDate(r.fecha)} · ${fmtMoney(r.monto)}`;
     });
     return `📊 ${label} (${result.items.length}):\n${lines.join('\n')}`;
+  }
+
+  if (result.kind === 'breakdown') {
+    return (
+      `📊 ${label}\nDesglose del pago por eventos:\n` +
+      `• Horas extra: <b>${fmtMoney(result.pagoHorasExtra)}</b>\n` +
+      `• Operaciones: <b>${fmtMoney(result.pagoOperaciones)}</b>\n` +
+      `• Total: <b>${fmtMoney(result.total)}</b>`
+    );
   }
 
   // scalar

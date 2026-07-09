@@ -336,3 +336,40 @@ describe("computeMetric — detailed listings", () => {
     expect(unsupportedCombo("listGastos", period)).toBeTruthy();
   });
 });
+
+describe("computeMetric — pay split (overtime pesos vs operations)", () => {
+  const janEvents = filterByPeriod(EVENTS, JAN);
+  const calcOf = (e) => calcularPagoEvento(e.fecha, e.horaEntrada, e.horaSalida, e.operacion, e.feriado, TARIFAS);
+  const expectExtra = janEvents.reduce((a, e) => a + calcOf(e).pagoExtra, 0);
+  const expectOper = janEvents.reduce((a, e) => a + calcOf(e).pagoOperacion, 0);
+
+  it("pagoHorasExtra sums only overtime pay, in pesos", () => {
+    const r = computeMetric({ metric: "pagoHorasExtra", period: JAN, data: DATA });
+    expect(r.unit).toBe("money");
+    expect(r.value).toBe(expectExtra);
+  });
+
+  it("pagoOperaciones sums only operation pay", () => {
+    const r = computeMetric({ metric: "pagoOperaciones", period: JAN, data: DATA });
+    expect(r.value).toBe(expectOper);
+    expect(expectOper).toBeGreaterThan(0); // JAN has events con operación
+  });
+
+  it("desglosePagoEventos returns both components and their total", () => {
+    const r = computeMetric({ metric: "desglosePagoEventos", period: JAN, data: DATA });
+    expect(r.kind).toBe("breakdown");
+    expect(r.pagoHorasExtra).toBe(expectExtra);
+    expect(r.pagoOperaciones).toBe(expectOper);
+    expect(r.total).toBe(expectExtra + expectOper);
+  });
+
+  it("totalEventos equals overtime pay + operations pay (no double counting)", () => {
+    const total = computeMetric({ metric: "totalEventos", period: JAN, data: DATA }).value;
+    expect(total).toBe(expectExtra + expectOper);
+  });
+
+  it("the pay breakdown cannot be compared", () => {
+    const period = { type: "compare", periods: [JAN, FEB] };
+    expect(unsupportedCombo("desglosePagoEventos", period)).toBeTruthy();
+  });
+});
