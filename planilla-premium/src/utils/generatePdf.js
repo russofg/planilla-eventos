@@ -2,9 +2,13 @@ import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { calcularPagoEvento } from "./calculations"
+import { calcularPagoEvento } from "./calculations.js"
 
-export const generatePdf = ({
+// Builds the report document and returns it together with the computed
+// filename. Pure (no browser APIs), so it runs both in the browser and in a
+// Node serverless function. The client wrapper `generatePdf` calls this and
+// triggers a download; the server calls it and outputs the bytes.
+export function buildPlanillaPdfDoc({
   events,
   expenses,
   sueldoFijo,
@@ -17,7 +21,7 @@ export const generatePdf = ({
   filterYear,
   userEmail,
   tarifasGlobales
-}) => {
+}) {
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.width
   const margin = 14
@@ -265,7 +269,12 @@ export const generatePdf = ({
   doc.setTextColor(150, 150, 150)
   doc.text("Planilla BLS - Reporte Generado Automáticamente", pageWidth / 2, doc.internal.pageSize.height - 10, { align: "center" })
 
-  // Save the PDF
   const filename = `Planilla_BLS_${filterText.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`
+  return { doc, filename }
+}
+
+// Client-side wrapper: build the document and trigger a browser download.
+export const generatePdf = (data) => {
+  const { doc, filename } = buildPlanillaPdfDoc(data)
   doc.save(filename)
 }
