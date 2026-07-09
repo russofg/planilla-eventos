@@ -7,9 +7,21 @@ import {
   sendChatAction,
   downloadTelegramFile,
 } from './utils/telegram.js';
-import { interpretMessage } from './utils/openrouter.js';
+import { interpretMessage, chatCompletion } from './utils/openrouter.js';
 import { transcribeAudio } from './utils/groq.js';
 import { runQuery, SUPPORTED_METRICS, unsupportedCombo } from './utils/queryEngine.js';
+import { fmtMoney, formatValue } from './utils/format.js';
+import { phraseQueryResult } from './utils/phrasing.js';
+import { isGreeting, pickGreetingReply } from './utils/greetings.js';
+import {
+  getEntity,
+  buildCreateRecord,
+  sanitizeChanges,
+  findCandidates,
+  isValidPeriod,
+  fmtDate,
+  recordName,
+} from './utils/planillaCore.js';
 
 /**
  * Netlify Function: telegram-webhook
@@ -133,26 +145,6 @@ async function handleLink(chatId, code, from) {
   );
 }
 
-/* ------------------------------- Entities ------------------------------- */
-
-/**
- * Each supported entity maps a natural-language "thing" to a Firestore
- * collection and its field shape. "evento" carries schedules; the money
- * entities (gasto/bono/aguinaldo/adelanto) share descripcion+fecha+monto,
- * with the extras ones pinned to a `tipo`.
- */
-const ENTITIES = {
-  evento: { collection: 'eventos', label: 'Evento', kind: 'evento', nameField: 'evento' },
-  gasto: { collection: 'gastos', label: 'Gasto', kind: 'money', nameField: 'descripcion' },
-  bono: { collection: 'extras', label: 'Bono', kind: 'money', nameField: 'descripcion', tipo: 'bono' },
-  aguinaldo: { collection: 'extras', label: 'Aguinaldo', kind: 'money', nameField: 'descripcion', tipo: 'aguinaldo' },
-  adelanto: { collection: 'extras', label: 'Adelanto', kind: 'money', nameField: 'descripcion', tipo: 'adelanto' },
-};
-
-function getEntity(intent) {
-  return ENTITIES[intent?.entidad] || null;
-}
-
 /* -------------------------------- Helpers ------------------------------- */
 
 const PENDING_TTL_MS = 15 * 60 * 1000;
@@ -162,22 +154,6 @@ function randomId(length = 12) {
   let id = '';
   for (let i = 0; i < length; i++) id += chars[Math.floor(Math.random() * chars.length)];
   return id;
-}
-
-const isTime = (t) => typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
-const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
-
-function fmtDate(iso) {
-  const [y, m, d] = (iso || '').split('-');
-  return y ? `${d}/${m}/${y}` : iso;
-}
-
-function fmtMoney(n) {
-  return `$ ${Number(n).toLocaleString('es-AR')}`;
-}
-
-function recordName(entity, r) {
-  return r[entity.nameField] || r.evento || r.descripcion || 'registro';
 }
 
 function formatRecordLine(entity, r) {
@@ -214,6 +190,12 @@ async function handleVoice(chatId, voice, userId) {
 /* ---------------------------- Intent routing ---------------------------- */
 
 async function handleUserText(chatId, text, userId) {
+  // Standalone small-talk short-circuit: warm static reply, no typing, no LLM.
+  if (isGreeting(text)) {
+    await sendMessage(chatId, pickGreetingReply(text));
+    return;
+  }
+
   await sendChatAction(chatId, 'typing');
 
   let intent;
@@ -270,53 +252,11 @@ const METRIC_TITLE = {
   totalFinal: 'Total final',
 };
 
-const PERIOD_TYPES = ['month', 'range', 'compare'];
-
-// Validates a single (month|range) sub-period. Rejects malformed shapes that
-// would otherwise produce "undefined <year>" labels or a TypeError downstream.
-function isValidSinglePeriod(period) {
-  if (!period || typeof period !== 'object') return false;
-  if (period.type === 'month') {
-    return (
-      Number.isInteger(period.month) &&
-      period.month >= 1 &&
-      period.month <= 12 &&
-      Number.isInteger(period.year)
-    );
-  }
-  if (period.type === 'range') {
-    // Require well-formed YYYY-MM-DD bounds in order (from <= to); malformed
-    // ranges fall through to the friendly hint instead of computing garbage.
-    return isDate(period.from) && isDate(period.to) && period.from <= period.to;
-  }
-  return false;
-}
-
-function isValidPeriod(period) {
-  if (!period || typeof period !== 'object') return false;
-  if (!PERIOD_TYPES.includes(period.type)) return false;
-  if (period.type === 'compare') {
-    // Exactly two sub-periods, each a valid month|range (nested compare not allowed).
-    return (
-      Array.isArray(period.periods) &&
-      period.periods.length === 2 &&
-      period.periods.every(isValidSinglePeriod)
-    );
-  }
-  return isValidSinglePeriod(period);
-}
-
 function periodLabel(period) {
   if (!period) return '';
   if (period.type === 'month') return `${MONTHS_ES[period.month - 1]} ${period.year}`;
   if (period.type === 'range') return `${period.from}–${period.to}`;
   return '';
-}
-
-function formatValue(unit, value) {
-  if (unit === 'money') return fmtMoney(value);
-  if (unit === 'hours') return `${value} h`;
-  return String(value);
 }
 
 // LLM phrasing for the operation list is deferred: plain bullet list only.
@@ -376,73 +316,17 @@ async function handleQuery(chatId, userId, intent) {
 
   try {
     const result = await runQuery({ db: getDb(), userId, metric, period });
-    await sendMessage(chatId, formatQueryReply(result));
+    await sendMessage(
+      chatId,
+      await phraseQueryResult(result, () => formatQueryReply(result), { chat: chatCompletion })
+    );
   } catch (err) {
     console.error('handleQuery error:', err);
     await sendMessage(chatId, 'No pude calcular esa consulta ahora. Probá de nuevo en un momento.');
   }
 }
 
-/* -------------------------- Candidate matching -------------------------- */
-
-async function findCandidates(db, userId, entity, intent) {
-  const rawName = intent[entity.nameField] ?? intent.descripcion ?? intent.evento;
-  const nameFilter = typeof rawName === 'string' ? rawName.trim().toLowerCase() : '';
-  const fecha = isDate(intent.fecha) ? intent.fecha : null;
-  const reciente = intent.referencia === 'reciente' || intent.referencia === 'ultimo';
-
-  if (!fecha && !nameFilter && !reciente) return { needsSelector: true, candidates: [] };
-
-  const snap = await db.collection(entity.collection).where('userId', '==', userId).get();
-  let candidates = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
-  // For the extras collection, keep only the requested tipo (bono/aguinaldo/adelanto).
-  if (entity.tipo) candidates = candidates.filter((e) => e.tipo === entity.tipo);
-  if (fecha) candidates = candidates.filter((e) => e.fecha === fecha);
-  if (nameFilter) {
-    candidates = candidates.filter((e) =>
-      (e[entity.nameField] || '').toLowerCase().includes(nameFilter)
-    );
-  }
-  if (reciente) {
-    candidates.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-    candidates = candidates.slice(0, 1);
-  } else {
-    // Most recent first, so the disambiguation buttons show the likely ones.
-    candidates.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-  }
-
-  return { needsSelector: false, candidates };
-}
-
 /* --------------------------------- Create ------------------------------- */
-
-function buildCreateRecord(entity, intent) {
-  if (entity.kind === 'evento') {
-    if (typeof intent.evento !== 'string' || !intent.evento.trim()) return null;
-    if (!isDate(intent.fecha)) return null;
-    if (!isTime(intent.horaEntrada) || !isTime(intent.horaSalida)) return null;
-    return {
-      evento: intent.evento.trim(),
-      fecha: intent.fecha,
-      horaEntrada: intent.horaEntrada,
-      horaSalida: intent.horaSalida,
-      operacion: intent.operacion === true,
-      feriado: intent.feriado === true,
-    };
-  }
-
-  // Money entities: descripcion + fecha + monto (> 0).
-  const monto = Number(intent.monto);
-  if (!isDate(intent.fecha) || !(monto > 0)) return null;
-  const descripcion =
-    typeof intent.descripcion === 'string' && intent.descripcion.trim()
-      ? intent.descripcion.trim()
-      : entity.label;
-  const record = { descripcion, fecha: intent.fecha, monto };
-  if (entity.tipo) record.tipo = entity.tipo;
-  return record;
-}
 
 async function handleCreate(chatId, userId, entity, intent) {
   const record = buildCreateRecord(entity, intent);
@@ -553,25 +437,6 @@ const CHANGE_LABELS = {
   operacion: 'Operación',
   feriado: 'Feriado',
 };
-
-function sanitizeChanges(entity, cambios) {
-  if (!cambios || typeof cambios !== 'object') return null;
-  const update = {};
-  if (entity.kind === 'evento') {
-    if (typeof cambios.evento === 'string' && cambios.evento.trim()) update.evento = cambios.evento.trim();
-    if (isTime(cambios.horaEntrada)) update.horaEntrada = cambios.horaEntrada;
-    if (isTime(cambios.horaSalida)) update.horaSalida = cambios.horaSalida;
-    if (typeof cambios.operacion === 'boolean') update.operacion = cambios.operacion;
-    if (typeof cambios.feriado === 'boolean') update.feriado = cambios.feriado;
-  } else {
-    if (typeof cambios.descripcion === 'string' && cambios.descripcion.trim()) {
-      update.descripcion = cambios.descripcion.trim();
-    }
-    if (Number(cambios.monto) > 0) update.monto = Number(cambios.monto);
-  }
-  if (isDate(cambios.fecha)) update.fecha = cambios.fecha;
-  return Object.keys(update).length ? update : null;
-}
 
 function formatChanges(update) {
   return Object.entries(update)
