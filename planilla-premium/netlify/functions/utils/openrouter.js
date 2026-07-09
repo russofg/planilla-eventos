@@ -103,12 +103,17 @@ export async function interpretMessage(userText) {
     `borrar o editar (modifica datos), usá esa acción. Usá "consultar" SOLO para preguntas de lectura ` +
     `(cuánto/cuántos/qué/listá) que NO modifican datos.\n\n` +
     `Si action="consultar", agregá "metric" (uno de): countEventos, countEventosConOperacion, ` +
-    `listEventosConOperacion, horasExtra, totalEventos, totalGastos, totalBonos, totalAguinaldo, ` +
-    `totalAdelantos, totalFinal.\n` +
+    `listEventosConOperacion, listEventos, listGastos, listExtras, horasExtra, totalEventos, ` +
+    `totalGastos, totalBonos, totalAguinaldo, totalAdelantos, totalFinal.\n` +
     `  - countEventos: cantidad de eventos. countEventosConOperacion: cantidad de eventos con operación.\n` +
     `  - listEventosConOperacion: lista de eventos con operación. horasExtra: horas extra trabajadas.\n` +
+    `  - listEventos: DETALLE de los eventos (nombre, fecha, horarios, operación, feriado, día). Usalo ` +
+    `cuando pida "detalle", "listame/mostrame los eventos o turnos", "cuáles fueron", "qué eventos tuve ` +
+    `con sus datos". listGastos: detalle de los gastos ("en qué gasté", "listame los gastos"). ` +
+    `listExtras: detalle de bonos/aguinaldos/adelantos.\n` +
     `  - totalEventos: ganancia por eventos. totalGastos: gastos. totalBonos/totalAguinaldo/totalAdelantos: ` +
     `dinero de ese tipo. totalFinal: total final del período.\n` +
+    `  - Distinguí: "cuántos/cuánto" → count/total (número); "cuáles/detalle/listame" → listEventos/listGastos/listExtras.\n` +
     `Y agregá "period" con una de estas formas:\n` +
     `  - {"type":"month","year":YYYY,"month":1-12} (resolvé "este mes"/"mes pasado" con la fecha de hoy)\n` +
     `  - {"type":"range","from":"YYYY-MM-DD","to":"YYYY-MM-DD"} (fechas explícitas)\n` +

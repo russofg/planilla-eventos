@@ -286,3 +286,53 @@ describe("computeMetric — compare period on a money unit", () => {
     expect(r.delta).toBe(febTotal - janTotal);
   });
 });
+
+describe("computeMetric — detailed listings", () => {
+  it("listEventos returns full detail, newest first", () => {
+    const r = computeMetric({ metric: "listEventos", period: JAN, data: DATA });
+    expect(r.kind).toBe("listDetail");
+    expect(r.entity).toBe("evento");
+    // JAN events sorted by fecha desc: Cumbre (20), Amcham (08), Expo (06).
+    expect(r.items.map((e) => e.evento)).toEqual(["Cumbre", "Amcham", "Expo"]);
+    const amcham = r.items.find((e) => e.evento === "Amcham");
+    expect(amcham).toMatchObject({
+      fecha: "2024-01-08",
+      horaEntrada: "08:00",
+      horaSalida: "20:00",
+      operacion: true,
+      feriado: false,
+    });
+    expect(amcham.horasExtra).toBe(horasExtraOf(evJanA));
+  });
+
+  it("listEventos computes weekday and weekend correctly", () => {
+    const r = computeMetric({ metric: "listEventos", period: JAN, data: DATA });
+    const expo = r.items.find((e) => e.evento === "Expo"); // 2024-01-06 = Saturday
+    const amcham = r.items.find((e) => e.evento === "Amcham"); // 2024-01-08 = Monday
+    expect(expo.diaSemana).toBe("sábado");
+    expect(expo.finde).toBe(true);
+    expect(amcham.diaSemana).toBe("lunes");
+    expect(amcham.finde).toBe(false);
+  });
+
+  it("listGastos and listExtras return their period records", () => {
+    const g = computeMetric({ metric: "listGastos", period: JAN, data: DATA });
+    expect(g.kind).toBe("listDetail");
+    expect(g.entity).toBe("gasto");
+    expect(g.items).toEqual([{ descripcion: "Comida", fecha: "2024-01-10", monto: 5000 }]);
+
+    const x = computeMetric({ metric: "listExtras", period: JAN, data: DATA });
+    expect(x.entity).toBe("extra");
+    expect(x.items.map((e) => e.tipo).sort()).toEqual(["adelanto", "aguinaldo", "bono"]);
+  });
+
+  it("empty period yields empty detail list", () => {
+    expect(computeMetric({ metric: "listEventos", period: EMPTY, data: DATA }).items).toEqual([]);
+  });
+
+  it("a detailed listing cannot be compared", () => {
+    const period = { type: "compare", periods: [JAN, FEB] };
+    expect(unsupportedCombo("listEventos", period)).toBeTruthy();
+    expect(unsupportedCombo("listGastos", period)).toBeTruthy();
+  });
+});

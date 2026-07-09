@@ -283,6 +283,24 @@ function formatQueryReply(result) {
     return `📊 ${label}\nEventos con operación (${result.items.length}):\n${phraseOperList(result.items)}`;
   }
 
+  if (result.kind === 'listDetail') {
+    if (!result.items.length) return `📊 ${label}\nNo hay registros en ese período.`;
+    const lines = result.items.map((r) => {
+      if (result.entity === 'evento') {
+        const flags = [
+          r.operacion ? '⚙️Op' : null,
+          r.feriado ? '🎌Fer' : null,
+          r.finde ? 'finde' : null,
+          r.horasExtra > 0 ? `${r.horasExtra}h extra` : null,
+        ].filter(Boolean).join(' · ');
+        return `📋 <b>${r.evento}</b> ${fmtDate(r.fecha)} (${r.diaSemana}) ${r.horaEntrada}–${r.horaSalida}${flags ? ' · ' + flags : ''}`;
+      }
+      const tipo = r.tipo ? ` (${r.tipo})` : '';
+      return `💵 <b>${r.descripcion}</b>${tipo} — ${fmtDate(r.fecha)} · ${fmtMoney(r.monto)}`;
+    });
+    return `📊 ${label} (${result.items.length}):\n${lines.join('\n')}`;
+  }
+
   // scalar
   if (result.unit === 'money') {
     return `📊 ${label}\n${METRIC_TITLE[result.metric] || 'Total'}: <b>${fmtMoney(result.value)}</b>`;

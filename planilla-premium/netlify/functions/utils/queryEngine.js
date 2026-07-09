@@ -29,11 +29,15 @@ const DEFAULT_TARIFAS = {
   tarifaOperacion: DEFAULT_TARIFA_OPERACION,
 };
 
-// metric → result shape metadata. `list` metrics have no unit.
+// metric → result shape metadata. `list`/`listDetail` metrics have no unit.
 const METRIC_META = {
   countEventos: { kind: 'scalar', unit: 'count' },
   countEventosConOperacion: { kind: 'scalar', unit: 'count' },
   listEventosConOperacion: { kind: 'list' },
+  // Detailed per-record listings (name, dates, hours, flags) for a period.
+  listEventos: { kind: 'listDetail', entity: 'evento' },
+  listGastos: { kind: 'listDetail', entity: 'gasto' },
+  listExtras: { kind: 'listDetail', entity: 'extra' },
   horasExtra: { kind: 'scalar', unit: 'hours' },
   totalEventos: { kind: 'scalar', unit: 'money' },
   totalGastos: { kind: 'scalar', unit: 'money' },
@@ -42,6 +46,12 @@ const METRIC_META = {
   totalAdelantos: { kind: 'scalar', unit: 'money' },
   totalFinal: { kind: 'scalar', unit: 'money' },
 };
+
+// A list metric can never be compared (no scalar semantics), so any of these
+// inside a compare period is rejected upstream by unsupportedCombo().
+const LIST_METRICS = ['listEventosConOperacion', 'listEventos', 'listGastos', 'listExtras'];
+
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 export const SUPPORTED_METRICS = Object.keys(METRIC_META);
 
@@ -77,7 +87,7 @@ function isMultiMonthRange(period) {
 export function unsupportedCombo(metric, period) {
   if (!period || typeof period !== 'object') return null;
 
-  if (metric === 'listEventosConOperacion' && period.type === 'compare') {
+  if (LIST_METRICS.includes(metric) && period.type === 'compare') {
     return LIST_COMPARE_MSG;
   }
 
@@ -195,6 +205,51 @@ function listItems(period, data) {
     .map((e) => e.evento);
 }
 
+/** Full detail for one evento: schedule, flags, computed overtime, weekday. */
+function eventoDetalle(e, tarifas) {
+  const dow = new Date(`${e.fecha}T12:00:00`).getDay();
+  return {
+    evento: e.evento,
+    fecha: e.fecha,
+    horaEntrada: e.horaEntrada,
+    horaSalida: e.horaSalida,
+    operacion: e.operacion === true,
+    feriado: e.feriado === true,
+    horasExtra: calcularPagoEvento(e.fecha, e.horaEntrada, e.horaSalida, e.operacion, e.feriado, tarifas).horasExtra,
+    diaSemana: DIAS_SEMANA[dow],
+    finde: dow === 0 || dow === 6,
+  };
+}
+
+/**
+ * Computes a detailed per-record listing for a (month|range) period, newest
+ * first. Events carry full schedule + flags + computed horasExtra + weekday;
+ * money records carry descripcion/fecha/monto (extras also tipo).
+ */
+function detailItems(metric, period, data) {
+  const { fEvents, fExpenses, fExtras } = filteredData(period, data);
+  const byFechaDesc = (a, b) => (b.fecha || '').localeCompare(a.fecha || '');
+  const tarifas = data.tarifas || DEFAULT_TARIFAS;
+
+  if (metric === 'listEventos') {
+    return [...fEvents].sort(byFechaDesc).map((e) => eventoDetalle(e, tarifas));
+  }
+  if (metric === 'listGastos') {
+    return [...fExpenses].sort(byFechaDesc).map((g) => ({
+      descripcion: g.descripcion,
+      fecha: g.fecha,
+      monto: g.monto,
+    }));
+  }
+  // listExtras
+  return [...fExtras].sort(byFechaDesc).map((x) => ({
+    descripcion: x.descripcion,
+    fecha: x.fecha,
+    monto: x.monto,
+    tipo: x.tipo,
+  }));
+}
+
 /**
  * Pure computation core (no Firestore). Dispatches the metric over pre-loaded
  * data. `compare` periods run the scalar metric once per sub-period and return
@@ -213,6 +268,10 @@ export function computeMetric({ metric, period, data }) {
 
   if (meta.kind === 'list') {
     return { metric, period, kind: 'list', items: listItems(period, data) };
+  }
+
+  if (meta.kind === 'listDetail') {
+    return { metric, period, kind: 'listDetail', entity: meta.entity, items: detailItems(metric, period, data) };
   }
 
   return { metric, period, kind: 'scalar', unit: meta.unit, value: scalarValue(metric, period, data) };
