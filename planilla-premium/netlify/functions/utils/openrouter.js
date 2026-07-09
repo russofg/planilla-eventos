@@ -19,6 +19,48 @@ export function argentinaNow() {
 }
 
 /**
+ * Minimal OpenRouter chat call used by the phrasing layer.
+ *
+ * Reuses the same endpoint, model resolution, and headers as interpretMessage.
+ * Returns the raw assistant content string. JSON mode is opt-in via `json`.
+ * interpretMessage keeps its own inline fetch untouched.
+ */
+export async function chatCompletion({ system, user, temperature = 0, maxTokens = 400, json = true }) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY env var is not set');
+  const model = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
+
+  const body = {
+    model,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    temperature,
+    max_tokens: maxTokens,
+  };
+  if (json) body.response_format = { type: 'json_object' };
+
+  const res = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'X-Title': 'Planilla BLS Bot',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`OpenRouter ${res.status}: ${errText}`);
+  }
+
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content || '';
+}
+
+/**
  * Interprets a free-text message: classifies the action (crear/borrar/editar)
  * and the entity (evento/gasto/bono/aguinaldo/adelanto), then extracts the
  * relevant fields. Relative dates resolve against today's Argentina date.
